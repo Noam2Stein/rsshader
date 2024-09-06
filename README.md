@@ -1,10 +1,12 @@
 # RS Shader
 
-A shader language tightly coupled to rust and its module system.
+A shading-language tightly-coupled with rust and its module system.
+
+* RS-Shader is translated to WGSL which means its cross platform and efficient.
 
 ## Syntax
 
-Uses Rust-like syntax with changes made to fit shader development.
+RS-Shader has Rust-like syntax with changes made to fit shader development.
 
 ## Module System
 
