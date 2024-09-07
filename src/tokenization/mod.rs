@@ -127,29 +127,34 @@ impl TokenStream {
                 LogosToken::GroupClose(str) => {
                     let delimiter = Delimiter::from_close_char(str.chars().next().unwrap()).unwrap();
                     
-                    if layers.len() < 2 {
-                        errs.push(Error::from_messages(span, [
-                            errm::unmatched_delimiter(delimiter.close_desc()),
-                            errm::expected(delimiter.open_desc()),
-                        ]))
-                    }
-                    else {
-                        let tts = layers.pop().unwrap();
-    
-                        if let TokenTree::Group(group) = layers.last_mut().unwrap().last_mut().unwrap() {
-                            if delimiter != group.delimiter {
-                                errs.push(Error::from_messages(span, [
-                                    errm::unmatched_delimiter(group.delimiter.open_desc()),
-                                    errm::expected(group.delimiter.close_desc()),
-                                    errm::found(delimiter.close_desc())
-                                ]))
+                    loop {
+                        if layers.len() > 1 {
+                            let stream = TokenStream::new(layers.pop().unwrap());
+                            if let TokenTree::Group(group) = layers.last_mut().unwrap().last_mut().unwrap() {
+                                group.stream = stream;
+                                
+                                if delimiter == group.delimiter {
+                                    group.span.end = span.end;
+                                    break;
+                                }
+                                else {
+                                    group.span.end = group.stream.span.end;
+                                    
+                                    errs.push(Error::from_messages(group.span, [
+                                        errm::unmatched_delimiter(group.delimiter.open_desc()),
+                                        errm::expected_found(group.delimiter.close_desc(), delimiter.close_desc()),
+                                    ]))
+                                }
                             }
-        
-                            group.stream = TokenStream::new(tts);
-                            group.span.end = span.end;
+                            else {
+                                unreachable!()
+                            };
                         }
                         else {
-                            unreachable!()
+                            errs.push(Error::from_messages(span, [
+                                errm::unmatched_delimiter(delimiter.close_desc()),
+                                errm::expected(delimiter.open_desc()),
+                            ]))
                         }
                     }
                 }
