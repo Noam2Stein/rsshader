@@ -1,65 +1,112 @@
-use rsshader::*;
-use tokenization::TokenStream;
+use std::fmt::Display;
+
+use rsshader::{error::*, span::*, tokenization::*};
+
+const SRC: &str = "
+
+    fn test(a: f32, b: f32) -> f32 {
+        a + b + 5u31
+        htnj
+        רערע eg
+    }
+
+    {
+        (
+    }
+
+";
 
 fn main() {
-    let mut source = "
+    let (output, errs) = {
+        let mut errs = Vec::new();
 
-        fn test(a: f32, b: f32) -> f32 {
-            a + b + 5u31
-        }
+        let output = {
+            let stream = TokenStream::parse(SRC, &mut errs);
 
-    ".to_string();
+            stream
+        };
 
-    let mut errs = Vec::new();
-    let stream = TokenStream::parse(&source, &mut errs);
+        errs.sort();
 
-    source = {
-        let mut lines = source.split("\n").collect::<Box<[&str]>>();
-        let space_offset = lines.iter().map(|line| line.chars().position(|c| c != ' ').unwrap_or(usize::MAX)).min().unwrap();
-        for line in &mut lines {
-            *line = &line[space_offset.min(line.len())..line.len()];
-        }
-
-        let mut output = String::with_capacity(source.len() + lines.len() * (2 + lines.len().ilog10() as usize));
-
-        let mut line_index = 1;
-        for line in lines {
-            output.push_str(&format!("{line_index: >3}\t{line}\n"));
-            line_index += 1;
-        }
-
-        output
+        (output, errs)
     };
+    
+    let src = format_src(&errs);
 
-    errs.sort();
-    errs.reverse();
-    for err in &errs {
-        source.insert_str(err.span.start, "\x1b[31m");
-        source.insert_str(err.span.end + "\x1b[31m".len(), "\x1b[0m");
-
-        let end_of_line = source.char_indices().find(|(i, c)| *i > err.span.start && *c == '\n').map(|(i, _)| i).unwrap_or(source.len());
-        
-        source.insert_str(end_of_line, &format!("\x1b[31m   // {err}\x1b[0m"));
-
-        let start_of_line = source.char_indices().filter_map(|(i, c)| if i < err.span.start && c == '\n' { Some(i) } else { None }).last().unwrap() + 1;
-
-        source.insert_str(start_of_line, &format!("\x1b[31m"));
-        source.insert_str(start_of_line + "\x1b[31m".len() + 3, &format!("\x1b[0m"));
+    let errs = if errs.len() > 0 {
+        Some(
+            errs.into_iter().map(|err|
+                format!("line {}:\n{}", line_label(span_line(err.span)), err.to_string_multiline())
+            ).collect::<Box<[String]>>().join("\n\n")
+        )
     }
-
+    else {
+        None
+    };
+    
     println!();
-    println!("{source}");
+    println!("{src}");
+    println!();
     println!("-----------------------------------------");
     println!();
-    println!("{stream}");
+    println!("{output}");
     println!();
-    println!("-----------------------------------------\x1b[31m");
 
-    for err in errs {
+    if let Some(errs) = errs {
+        println!("\x1b[31m-----------------------------------------");
         println!();
-        println!("line {}:", source[0..err.span.start].chars().filter(|c| *c == '\n').count() + 1);
-        println!("{}", err.to_string_multiline());
+        println!("{errs}");
+        println!();
+    }
+}
+fn format_src(errs: &[Error]) -> String {
+    let mut src = SRC.to_string();
+    let mut err_spans = errs.iter().map(|err| err.span).collect::<Vec<Span>>();
+
+    err_spans.sort();
+    
+    let mut index = 0;
+    while index + 1 < err_spans.len() {
+        let span = err_spans[index];
+        let next_span = err_spans[index + 1];
+
+        if span.end >= next_span.start {
+            err_spans[index] = Span::connect(span, next_span);
+            err_spans.remove(index + 1);
+        }
+        else {
+            index += 1;
+        }
     }
 
-    println!();
+    err_spans.reverse();
+
+    for span in err_spans {
+        src.insert_str(span.end, "\x1b[0m");
+        src.insert_str(span.start, "\x1b[31m");
+    }
+
+    let lines_strs = src.split("\n").collect::<Box<[&str]>>();
+
+    let offset = lines_strs.iter().map(|line| line.chars().position(|c| c != ' ').unwrap_or(usize::MAX)).min().unwrap();
+
+    (0..lines_strs.len()).map(|line| {
+        let line_label = line_label(line);
+
+        let line_str = lines_strs[line];
+        let line_str = &line_str[offset.min(line_str.len())..line_str.len()];
+
+        if let Some(err) = errs.iter().find(|err| span_line(err.span) == line) {
+            format!("\x1b[31m{line_label: >3}\x1b[0m\t{line_str}   \x1b[31m// {err}\x1b[0m")
+        }
+        else {
+            format!("{line_label: >3}\t{line_str}")
+        }
+    }).collect::<Box<[String]>>().join("\n")
+}
+fn span_line(span: Span) -> usize {
+    SRC[0..span.start].chars().filter(|c| *c == '\n').count()
+}
+fn line_label(line: usize) -> impl Display {
+    line + 1
 }
