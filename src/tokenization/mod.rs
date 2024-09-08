@@ -197,68 +197,12 @@ fn read<'a>(mut lexer: Lexer<'a, LogosToken<'a>>, errs: &mut Vec<Error>) -> Toke
         let token_span = Span::new(token_span.start, token_span.end);
         
         match token.unwrap() {
-            LogosToken::Ident(ident) => output_tokens.push(
-                if let Some(keyword) = Keyword::parse(ident, token_span.start()) {
-                    TokenTree::Keyword(keyword)
-                }
-                else {
-                    TokenTree::Ident(Ident {
-                        str: ident.to_string(),
-                        start: token_span.start(),
-                    })
-                }
-            ),
-            LogosToken::UnsuffixedIntLiteral(str) => {
-                output_tokens.push(TokenTree::Literal(Literal::Int(IntLiteral {
-                    value: str.to_string(),
-                    suffix: None,
-                    span: token_span,
-                })));
-            }
-            LogosToken::SuffixedIntLiteral(str) => {
-                let (value, suffix_str) = str.split_at(str.find(|c: char| c.is_alphabetic()).unwrap());
-                output_tokens.push(TokenTree::Literal(Literal::Int(IntLiteral {
-                    value: value.to_string(),
-                    suffix: IntSuffix::from_str(suffix_str).ok().or_else(|| {
-                        errs.push(Error::from_messages(token_span, [
-                            errm::expected_found(IntSuffix::type_desc(), Description::quote(suffix_str)),
-                            errm::valid_forms_are(IntSuffix::VALUES.map(|suffix| suffix.desc()))
-                        ]));
-                        
-                        Some(
-                            IntSuffix::default()
-                        )
-                    }),
-                    span: token_span,
-                })));
-            }
-            LogosToken::UnsuffixedFloatLiteral(str) => {
-                output_tokens.push(TokenTree::Literal(Literal::Float(FloatLiteral {
-                    value: str.to_string(),
-                    suffix: None,
-                    span: token_span,
-                })));
-            }
-            LogosToken::SuffixedFloatLiteral(str) => {
-                let (value, suffix_str) = str.split_at(str.find(|c: char| c.is_alphabetic()).unwrap());
-                output_tokens.push(TokenTree::Literal(Literal::Float(FloatLiteral {
-                    value: value.to_string(),
-                    suffix: FloatSuffix::from_str(suffix_str).ok().or_else(|| {
-                        errs.push(Error::from_messages(token_span, [
-                            errm::expected_found(FloatSuffix::type_desc(), Description::quote(suffix_str)),
-                            errm::valid_forms_are(FloatSuffix::VALUES.map(|suffix| suffix.desc()))
-                        ]));
-
-                        Some(
-                            FloatSuffix::default()
-                        )
-                    }),
-                    span: token_span,
-                })));
-            },
-            LogosToken::Punct(str) => {
-                output_tokens.push(TokenTree::Punct(Punct::parse(str, token_span.start()).unwrap()));
-            },
+            LogosToken::Ident(str) => read_ident(&mut output_tokens, errs, str, token_span),
+            LogosToken::UnsuffixedIntLiteral(str) => read_unsuffixed_int(&mut output_tokens, errs, str, token_span),
+            LogosToken::SuffixedIntLiteral(str) => read_suffixed_int(&mut output_tokens, errs, str, token_span),
+            LogosToken::UnsuffixedFloatLiteral(str) => read_unsuffixed_float(&mut output_tokens, errs, str, token_span),
+            LogosToken::SuffixedFloatLiteral(str) => read_suffixed_float(&mut output_tokens, errs, str, token_span),
+            LogosToken::Punct(str) => read_punct(&mut output_tokens, errs, str, token_span),
             LogosToken::GroupOpen(str) => {
                 let (group, escaped_closer) = read_group(
                     Delimiter::from_open_str(str).unwrap(),
@@ -311,68 +255,12 @@ fn read_group<'a>(open_delimiter: Delimiter, open_span: Span, lexer: &mut Lexer<
         let token_span = Span::new(token_span.start, token_span.end);
         
         match token.unwrap() {
-            LogosToken::Ident(ident) => output_tokens.push(
-                if let Some(keyword) = Keyword::parse(ident, token_span.start()) {
-                    TokenTree::Keyword(keyword)
-                }
-                else {
-                    TokenTree::Ident(Ident {
-                        str: ident.to_string(),
-                        start: token_span.start(),
-                    })
-                }
-            ),
-            LogosToken::UnsuffixedIntLiteral(str) => {
-                output_tokens.push(TokenTree::Literal(Literal::Int(IntLiteral {
-                    value: str.to_string(),
-                    suffix: None,
-                    span: token_span,
-                })));
-            }
-            LogosToken::SuffixedIntLiteral(str) => {
-                let (value, suffix_str) = str.split_at(str.find(|c: char| c.is_alphabetic()).unwrap());
-                output_tokens.push(TokenTree::Literal(Literal::Int(IntLiteral {
-                    value: value.to_string(),
-                    suffix: IntSuffix::from_str(suffix_str).ok().or_else(|| {
-                        errs.push(Error::from_messages(token_span, [
-                            errm::expected_found(IntSuffix::type_desc(), Description::quote(suffix_str)),
-                            errm::valid_forms_are(IntSuffix::VALUES.map(|suffix| suffix.desc()))
-                        ]));
-                        
-                        Some(
-                            IntSuffix::default()
-                        )
-                    }),
-                    span: token_span,
-                })));
-            }
-            LogosToken::UnsuffixedFloatLiteral(str) => {
-                output_tokens.push(TokenTree::Literal(Literal::Float(FloatLiteral {
-                    value: str.to_string(),
-                    suffix: None,
-                    span: token_span,
-                })));
-            }
-            LogosToken::SuffixedFloatLiteral(str) => {
-                let (value, suffix_str) = str.split_at(str.find(|c: char| c.is_alphabetic()).unwrap());
-                output_tokens.push(TokenTree::Literal(Literal::Float(FloatLiteral {
-                    value: value.to_string(),
-                    suffix: FloatSuffix::from_str(suffix_str).ok().or_else(|| {
-                        errs.push(Error::from_messages(token_span, [
-                            errm::expected_found(FloatSuffix::type_desc(), Description::quote(suffix_str)),
-                            errm::valid_forms_are(FloatSuffix::VALUES.map(|suffix| suffix.desc()))
-                        ]));
-
-                        Some(
-                            FloatSuffix::default()
-                        )
-                    }),
-                    span: token_span,
-                })));
-            },
-            LogosToken::Punct(str) => {
-                output_tokens.push(TokenTree::Punct(Punct::parse(str, token_span.start()).unwrap()));
-            },
+            LogosToken::Ident(str) => read_ident(&mut output_tokens, errs, str, token_span),
+            LogosToken::UnsuffixedIntLiteral(str) => read_unsuffixed_int(&mut output_tokens, errs, str, token_span),
+            LogosToken::SuffixedIntLiteral(str) => read_suffixed_int(&mut output_tokens, errs, str, token_span),
+            LogosToken::UnsuffixedFloatLiteral(str) => read_unsuffixed_float(&mut output_tokens, errs, str, token_span),
+            LogosToken::SuffixedFloatLiteral(str) => read_suffixed_float(&mut output_tokens, errs, str, token_span),
+            LogosToken::Punct(str) => read_punct(&mut output_tokens, errs, str, token_span),
             LogosToken::GroupOpen(str) => {
                 let (group, escaped_closer) = read_group(
                     Delimiter::from_open_str(str).unwrap(),
@@ -485,4 +373,68 @@ fn read_group<'a>(open_delimiter: Delimiter, open_span: Span, lexer: &mut Lexer<
         },
         None
     )
+}
+fn read_ident(output: &mut Vec<TokenTree>, _errs: &mut Vec<Error>, str: &str, span: Span) {
+    output.push(
+        if let Some(keyword) = Keyword::parse(str, span.start()) {
+            TokenTree::Keyword(keyword)
+        }
+        else {
+            TokenTree::Ident(Ident {
+                str: str.to_string(),
+                start: span.start(),
+            })
+        }
+    )
+}
+fn read_unsuffixed_int(output: &mut Vec<TokenTree>, _errs: &mut Vec<Error>, str: &str, span: Span) {
+    output.push(TokenTree::Literal(Literal::Int(IntLiteral {
+        value: str.to_string(),
+        suffix: None,
+        span: span,
+    })));
+}
+fn read_suffixed_int(output: &mut Vec<TokenTree>, _errs: &mut Vec<Error>, str: &str, span: Span) {
+    let (value, suffix_str) = str.split_at(str.find(|c: char| c.is_alphabetic()).unwrap());
+    output.push(TokenTree::Literal(Literal::Int(IntLiteral {
+        value: value.to_string(),
+        suffix: IntSuffix::from_str(suffix_str).ok().or_else(|| {
+            _errs.push(Error::from_messages(span, [
+                errm::expected_found(IntSuffix::type_desc(), Description::quote(suffix_str)),
+                errm::valid_forms_are(IntSuffix::VALUES.map(|suffix| suffix.desc()))
+            ]));
+            
+            Some(
+                IntSuffix::default()
+            )
+        }),
+        span,
+    })));
+}
+fn read_unsuffixed_float(output: &mut Vec<TokenTree>, _errs: &mut Vec<Error>, str: &str, span: Span) {
+    output.push(TokenTree::Literal(Literal::Float(FloatLiteral {
+        value: str.to_string(),
+        suffix: None,
+        span: span,
+    })));
+}
+fn read_suffixed_float(output: &mut Vec<TokenTree>, _errs: &mut Vec<Error>, str: &str, span: Span) {
+    let (value, suffix_str) = str.split_at(str.find(|c: char| c.is_alphabetic()).unwrap());
+    output.push(TokenTree::Literal(Literal::Float(FloatLiteral {
+        value: value.to_string(),
+        suffix: FloatSuffix::from_str(suffix_str).ok().or_else(|| {
+            _errs.push(Error::from_messages(span, [
+                errm::expected_found(FloatSuffix::type_desc(), Description::quote(suffix_str)),
+                errm::valid_forms_are(FloatSuffix::VALUES.map(|suffix| suffix.desc()))
+            ]));
+
+            Some(
+                FloatSuffix::default()
+            )
+        }),
+        span,
+    })));
+}
+fn read_punct(output: &mut Vec<TokenTree>, _errs: &mut Vec<Error>, str: &str, span: Span) {
+    output.push(TokenTree::Punct(Punct::parse(str, span.start()).unwrap()));
 }

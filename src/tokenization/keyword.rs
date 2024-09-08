@@ -28,11 +28,11 @@ pub struct Keyword {
     span: usize,
 }
 impl Keyword {
-    pub fn parse(value: &str, span: usize) -> Option<Self> {
+    pub fn parse(value: &str, span_start: usize) -> Option<Self> {
         KEYWORDS.into_iter().position(|keyword| value == *keyword).map(|id|
             Self {
                 id: id as u8,
-                span,
+                span: span_start,
             }
         )
     }
