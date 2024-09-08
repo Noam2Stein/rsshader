@@ -1,4 +1,4 @@
-use std::{write, fmt::{self, Display, Formatter}, str::FromStr};
+use std::{write, fmt::{self, Display, Formatter}};
 
 use crate::{desc::*, error::*, span::*};
 
@@ -15,7 +15,7 @@ pub mod group;
 use keyword::Keyword;
 use ident::Ident;
 use punct::Punct;
-use literal::{Literal, IntLiteral, IntSuffix, FloatLiteral, FloatSuffix};
+use literal::{Literal, IntLiteral, FloatLiteral};
 use group::{Group, Delimiter};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Default)]
@@ -75,7 +75,7 @@ impl<'stream> TokenStreamIter<'stream> {
     pub fn span(&self) -> Span {
         self.stream.span
     }
-    pub fn read<'a, T: FromTokens<'a>>(&'a mut self) -> Result<T> {
+    pub fn read<'a, T: FromTokens<'a>>(&'a mut self) -> Result<T, Error> {
         T::from_tokens(self)
     }
 }
@@ -87,7 +87,7 @@ impl<'a> Iterator for TokenStreamIter<'a> {
 }
 
 pub trait FromTokens<'a>: Sized {
-    fn from_tokens(stream: &mut TokenStreamIter) -> Result<Self>;
+    fn from_tokens(stream: &mut TokenStreamIter) -> Result<Self, Error>;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -148,7 +148,7 @@ impl TypeDescribe for TokenTree {
     }
 }
 impl<'a> FromTokens<'a> for TokenTree {
-    fn from_tokens(stream: &mut TokenStreamIter) -> Result<Self> {
+    fn from_tokens(stream: &mut TokenStreamIter) -> Result<Self, Error> {
         if let Some(token) = stream.next() {
             Ok(
                 token.clone()
@@ -181,64 +181,31 @@ fn read(mut tokens: TokenIter, errs: &mut Vec<Error>) -> TokenStream {
                     TokenTree::Keyword(keyword)
                 }
                 else {
-                    TokenTree::Ident(Ident {
-                        str: token.str.to_string(),
-                        span_start: token.span.start(),
-                    })
+                    TokenTree::Ident(
+                        unsafe { Ident::parse_unchecked(token.str, token.span.start()) }
+                    )
                 }
             ),
-            TokenType::UnsuffixedIntLiteral => output.push(
-                TokenTree::Literal(Literal::Int(IntLiteral {
-                    value: token.str.to_string(),
-                    suffix: None,
-                    span: token.span,
-                }))
+            TokenType::IntLiteral => output.push(
+                TokenTree::Literal(Literal::Int(
+                    IntLiteral::parse_unsuffixed(token.str, token.span.start()).unwrap_or_else(|err| {
+                        errs.push(Error::from_messages(token.span, [
+                            ErrorMessage::Problem(err)
+                        ]));
+                        IntLiteral::default()
+                    })
+                ))
             ),
-            TokenType::SuffixedIntLiteral => {
-                let (value_str, suffix_str) = token.str.split_at(token.str.find(|c: char| c.is_alphabetic()).unwrap());
-                output.push(
-                    TokenTree::Literal(Literal::Int(IntLiteral {
-                        value: value_str.to_string(),
-                        suffix: IntSuffix::from_str(suffix_str).ok().or_else(|| {
-                            errs.push(Error::from_messages(token.span, [
-                                errm::expected_found(IntSuffix::type_desc(), Description::quote(suffix_str)),
-                                errm::valid_forms_are(IntSuffix::VALUES.map(|suffix| suffix.desc()))
-                            ]));
-                        
-                            Some(
-                                IntSuffix::default()
-                            )
-                        }),
-                        span: token.span,
-                    }))
-                );
-            },
-            TokenType::UnsuffixedFloatLiteral => output.push(
-                TokenTree::Literal(Literal::Float(FloatLiteral {
-                    value: token.str.to_string(),
-                    suffix: None,
-                    span: token.span,
-                }))
+            TokenType::FloatLiteral => output.push(
+                TokenTree::Literal(Literal::Float(
+                    FloatLiteral::parse_unsuffixed(token.str, token.span.start()).unwrap_or_else(|err| {
+                        errs.push(Error::from_messages(token.span, [
+                            ErrorMessage::Problem(err)
+                        ]));
+                        FloatLiteral::default()
+                    })
+                ))
             ),
-            TokenType::SuffixedFloatLiteral => {
-                let (value_str, suffix_str) = token.str.split_at(token.str.find(|c: char| c.is_alphabetic()).unwrap());
-                output.push(
-                    TokenTree::Literal(Literal::Float(FloatLiteral {
-                        value: value_str.to_string(),
-                        suffix: FloatSuffix::from_str(suffix_str).ok().or_else(|| {
-                            errs.push(Error::from_messages(token.span, [
-                                errm::expected_found(FloatSuffix::type_desc(), Description::quote(suffix_str)),
-                                errm::valid_forms_are(FloatSuffix::VALUES.map(|suffix| suffix.desc()))
-                            ]));
-            
-                            Some(
-                                FloatSuffix::default()
-                            )
-                        }),
-                        span: token.span,
-                    }))
-                );
-            }
             TokenType::Punct => output.push(
                 TokenTree::Punct(Punct::parse(token.str, token.span.start()).unwrap())
             ),

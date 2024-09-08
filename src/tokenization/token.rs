@@ -6,14 +6,10 @@ use crate::{desc::*, span::*};
 enum LogosToken {
     #[regex(r"[a-zA-Z_][a-zA-Z0-9_]*", priority = 1)]
     Ident,
-    #[regex(r"[0-9]+", priority = 1)]
-    UnsuffixedIntLiteral,
-    #[regex(r"[0-9]+[a-zA-Z_][a-zA-Z0-9_]*", priority = 1)]
-    SuffixedIntLiteral,
-    #[regex(r"[0-9]*\.[0-9]+", priority = 1)]
-    UnsuffixedFloatLiteral,
-    #[regex(r"[0-9]*\.[0-9]+[a-zA-Z_][a-zA-Z0-9_]*", priority = 1)]
-    SuffixedFloatLiteral,
+    #[regex(r"[0-9]+([a-zA-Z_][a-zA-Z0-9_]*)?", priority = 1)]
+    IntLiteral,
+    #[regex(r"[0-9]*\.[0-9]+([a-zA-Z_][a-zA-Z0-9_]*)?", priority = 1)]
+    FloatLiteral,
     #[regex(r"->|<-|=>|<=|\+=|-=|\*=|/=|%=|!=|\^=|\|=|&=|==|\.\.|[`~!@#\$%\^&\*\-\+=\\\|;:',<\./\?]", priority = 1)]
     Punct,
     #[regex(r"[\(\[\{]", priority = 1)]
@@ -44,10 +40,8 @@ impl<'src> TypeDescribe for Token<'src> {
 }
 pub enum TokenType {
     Ident,
-    UnsuffixedIntLiteral,
-    SuffixedIntLiteral,
-    UnsuffixedFloatLiteral,
-    SuffixedFloatLiteral,
+    IntLiteral,
+    FloatLiteral,
     Punct,
     GroupOpen,
     GroupClose,
@@ -76,10 +70,8 @@ impl<'src> Iterator for TokenIter<'src> {
                 if let Ok(token) = token {
                     match token {
                         LogosToken::Ident => break Some(Token { str, span, ty: TokenType::Ident, }),
-                        LogosToken::UnsuffixedIntLiteral => break Some(Token { str, span, ty: TokenType::UnsuffixedIntLiteral, }),
-                        LogosToken::SuffixedIntLiteral => break Some(Token { str, span, ty: TokenType::SuffixedIntLiteral, }),
-                        LogosToken::UnsuffixedFloatLiteral => break Some(Token { str, span, ty: TokenType::UnsuffixedFloatLiteral, }),
-                        LogosToken::SuffixedFloatLiteral => break Some(Token { str, span, ty: TokenType::SuffixedFloatLiteral, }),
+                        LogosToken::IntLiteral => break Some(Token { str, span, ty: TokenType::IntLiteral, }),
+                        LogosToken::FloatLiteral => break Some(Token { str, span, ty: TokenType::FloatLiteral, }),
                         LogosToken::Punct => break Some(Token { str, span, ty: TokenType::Punct, }),
                         LogosToken::GroupOpen => break Some(Token { str, span, ty: TokenType::GroupOpen, }),
                         LogosToken::GroupClose => break Some(Token { str, span, ty: TokenType::GroupClose, }),

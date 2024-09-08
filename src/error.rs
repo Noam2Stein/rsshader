@@ -58,8 +58,6 @@ impl std::error::Error for Error {
 
 }
 
-pub type Result<T> = std::result::Result<T, Error>;
-
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum ErrorMessage {
     Problem(String),

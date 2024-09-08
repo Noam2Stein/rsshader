@@ -25,14 +25,14 @@ pub const KEYWORDS: &[&str] = &[
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Keyword {
     id: u8,
-    span: usize,
+    span_start: usize,
 }
 impl Keyword {
     pub fn parse(value: &str, span_start: usize) -> Option<Self> {
         KEYWORDS.into_iter().position(|keyword| value == *keyword).map(|id|
             Self {
                 id: id as u8,
-                span: span_start,
+                span_start,
             }
         )
     }
@@ -43,7 +43,7 @@ impl Keyword {
 }
 impl Spanned for Keyword {
     fn span(&self) -> Span {
-        Span::sized(self.span, self.str().len())
+        Span::sized(self.span_start, self.str().len())
     }
 }
 impl Display for Keyword {
@@ -62,7 +62,7 @@ impl TypeDescribe for Keyword {
     }
 }
 impl<'a> FromTokens<'a> for Keyword {
-    fn from_tokens(stream: &mut TokenStreamIter) -> Result<Self> {
+    fn from_tokens(stream: &mut TokenStreamIter) -> Result<Self, Error> {
         if let Some(token) = stream.next() {
             if let TokenTree::Keyword(output) = token {
                 Ok(

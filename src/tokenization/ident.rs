@@ -1,11 +1,45 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::{desc::*, error::*, span::*, tokenization::*};
+use crate::{desc::*, error::*, span::*, tokenization::{*, keyword::*}};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Ident {
-    pub str: String,
-    pub span_start: usize,
+    str: String,
+    span_start: usize,
+}
+impl Ident {
+    pub fn parse(str: &str, span_start: usize) -> Result<Self, String> {        
+        if KEYWORDS.contains(&str) {
+            Err(format!("'{str}' is an invalid ident because it's a keyword"))
+        }
+        else if str.len() == 0 {
+            Err(format!("an empty str is an invalid ident"))
+        }
+        else if str.chars().any(|c| !c.is_ascii_alphabetic() && !c.is_ascii_digit() && !['_'].contains(&c)) {
+            Err(format!("'{str}' is an invalid ident because it contains invalid chars"))
+        }
+        else if str.chars().next().unwrap().is_ascii_digit() {
+            Err(format!("'{str}' is an invalid ident because it starts with a digit"))
+        }
+        else {
+            Ok(
+                Self {
+                    str: str.to_string(),
+                    span_start,
+                }
+            )
+        }
+    }
+    pub unsafe fn parse_unchecked(str: &str, span_start: usize) -> Self {
+        Self {
+            str: str.to_string(),
+            span_start,
+        }
+    }
+
+    pub fn str(&self) -> &str {
+        &self.str
+    }
 }
 impl Spanned for Ident {
     fn span(&self) -> Span {
@@ -28,7 +62,7 @@ impl TypeDescribe for Ident {
     }
 }
 impl<'a> FromTokens<'a> for Ident {
-    fn from_tokens(stream: &mut TokenStreamIter) -> Result<Self> {
+    fn from_tokens(stream: &mut TokenStreamIter) -> Result<Self, Error> {
         if let Some(token) = stream.next() {
             if let TokenTree::Ident(output) = token {
                 Ok(

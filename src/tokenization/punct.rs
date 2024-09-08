@@ -49,14 +49,14 @@ pub const PUNCTS: &[&str] = &[
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Punct {
     id: u8,
-    span: usize,
+    span_start: usize,
 }
 impl Punct {
-    pub fn parse(value: &str, span: usize) -> Option<Self> {
+    pub fn parse(value: &str, span_start: usize) -> Option<Self> {
         PUNCTS.into_iter().position(|punct| value == *punct).map(|position|
             Self {
                 id: position as u8,
-                span,
+                span_start,
             }
         )
     }
@@ -67,7 +67,7 @@ impl Punct {
 }
 impl Spanned for Punct {
     fn span(&self) -> Span {
-        Span::sized(self.span, self.str().len())
+        Span::sized(self.span_start, self.str().len())
     }
 }
 impl Display for Punct {
@@ -86,7 +86,7 @@ impl TypeDescribe for Punct {
     }
 }
 impl<'a> FromTokens<'a> for Punct {
-    fn from_tokens(stream: &mut TokenStreamIter) -> Result<Self> {
+    fn from_tokens(stream: &mut TokenStreamIter) -> Result<Self, Error> {
         if let Some(token) = stream.next() {
             if let TokenTree::Punct(output) = token {
                 Ok(

@@ -9,16 +9,7 @@ pub struct Group {
     pub span: Span,
 }
 impl Group {
-    #[inline(always)]
-    pub fn open_span(&self) -> Span {
-        self.span.first_byte()
-    }
-    #[inline(always)]
-    pub fn close_span(&self) -> Span {
-        self.span.last_byte()
-    }
-
-    pub fn from_tokens_with(delimiter: Delimiter, stream: &mut TokenStreamIter) -> Result<Self> {
+    pub fn from_tokens_with(delimiter: Delimiter, stream: &mut TokenStreamIter) -> Result<Self, Error> {
         if let Some(token) = stream.next() {
             if let TokenTree::Group(output) = token {
                 if output.delimiter == delimiter {
@@ -44,6 +35,15 @@ impl Group {
                 errm::expected(Self::type_desc())
             ]))
         }
+    }
+
+    #[inline(always)]
+    pub fn open_span(&self) -> Span {
+        self.span.first_byte()
+    }
+    #[inline(always)]
+    pub fn close_span(&self) -> Span {
+        self.span.last_byte()
     }
 }
 impl Spanned for Group {
@@ -73,7 +73,7 @@ impl TypeDescribe for Group {
     }
 }
 impl<'a> FromTokens<'a> for Group {
-    fn from_tokens(stream: &mut TokenStreamIter) -> Result<Self> {
+    fn from_tokens(stream: &mut TokenStreamIter) -> Result<Self, Error> {
         if let Some(token) = stream.next() {
             if let TokenTree::Group(output) = token {
                 Ok(
@@ -191,7 +191,7 @@ impl From<GroupWithBraces> for Group {
     }
 }
 impl<'a> FromTokens<'a> for GroupWithBraces {
-    fn from_tokens(stream: &mut TokenStreamIter) -> Result<Self> {
+    fn from_tokens(stream: &mut TokenStreamIter) -> Result<Self, Error> {
         unsafe {
             mem::transmute(Group::from_tokens_with(Delimiter::Brace, stream))
         }
@@ -208,7 +208,7 @@ impl From<GroupWithBrackets> for Group {
     }
 }
 impl<'a> FromTokens<'a> for GroupWithBrackets {
-    fn from_tokens(stream: &mut TokenStreamIter) -> Result<Self> {
+    fn from_tokens(stream: &mut TokenStreamIter) -> Result<Self, Error> {
         unsafe {
             mem::transmute(Group::from_tokens_with(Delimiter::Bracket, stream))
         }
@@ -225,7 +225,7 @@ impl From<GroupWithParenthesis> for Group {
     }
 }
 impl<'a> FromTokens<'a> for GroupWithParenthesis {
-    fn from_tokens(stream: &mut TokenStreamIter) -> Result<Self> {
+    fn from_tokens(stream: &mut TokenStreamIter) -> Result<Self, Error> {
         unsafe {
             mem::transmute(Group::from_tokens_with(Delimiter::Parenthesis, stream))
         }
