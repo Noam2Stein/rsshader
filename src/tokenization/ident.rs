@@ -5,11 +5,11 @@ use crate::{desc::*, error::*, span::*, tokenization::*};
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Ident {
     pub str: String,
-    pub start: usize,
+    pub span_start: usize,
 }
 impl Spanned for Ident {
     fn span(&self) -> Span {
-        Span::new(self.start, self.start + self.str.len())
+        Span::new(self.span_start, self.span_start + self.str.len())
     }
 }
 impl Display for Ident {

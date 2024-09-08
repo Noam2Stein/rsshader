@@ -1,8 +1,10 @@
 use std::{write, fmt::{self, Display, Formatter}, str::FromStr};
-use errm::{expected, unexpected_end_of_file, unmatched_delimiter};
-use logos::{Lexer, Logos};
 
 use crate::{desc::*, error::*, span::*};
+
+mod token;
+
+use token::*;
 
 pub mod keyword;
 pub mod ident;
@@ -41,7 +43,7 @@ impl TokenStream {
     }
 
     pub fn parse(src: &str, errs: &mut Vec<Error>) -> Self {
-        read(LogosToken::lexer(src), errs)
+        read(TokenIter::new(src), errs)
     }    
 }
 impl Display for TokenStream {
@@ -161,280 +163,216 @@ impl<'a> FromTokens<'a> for TokenTree {
     }
 }
 
-#[derive(Logos, Debug, Clone, PartialEq, PartialOrd)]
-enum LogosToken<'a> {
-    #[regex(r"[a-zA-Z_][a-zA-Z0-9_]*", priority = 1)]
-    Ident(&'a str),
-    #[regex(r"[0-9]+", priority = 1)]
-    UnsuffixedIntLiteral(&'a str),
-    #[regex(r"[0-9]+[a-zA-Z_][a-zA-Z0-9_]*", priority = 1)]
-    SuffixedIntLiteral(&'a str),
-    #[regex(r"[0-9]*\.[0-9]+", priority = 1)]
-    UnsuffixedFloatLiteral(&'a str),
-    #[regex(r"[0-9]*\.[0-9]+[a-zA-Z_][a-zA-Z0-9_]*", priority = 1)]
-    SuffixedFloatLiteral(&'a str),
-    #[regex(r"->|<-|=>|<=|\+=|-=|\*=|/=|%=|!=|\^=|\|=|&=|==|\.\.|[`~!@#\$%\^&\*\-\+=\\\|;:',<\./\?]", priority = 1)]
-    Punct(&'a str),
-    #[regex(r"[\(\[\{]", priority = 1)]
-    GroupOpen(&'a str),
-    #[regex(r"[\)\]\}]", priority = 1)]
-    GroupClose(&'a str),
-    #[regex(r"\s+", logos::skip, priority = 1)]
-    Whitespace,
-    #[regex(r"[^\x00-\x7F]+")]
-    NotAToken(&'a str),
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+struct GroupEdge {
+    delimiter: Delimiter,
+    span: Span,
+}
+struct ReadGroupOutput {
+    group: Group,
+    escaped_group_close: Option<GroupEdge>,
 }
 
-fn read<'a>(mut lexer: Lexer<'a, LogosToken<'a>>, errs: &mut Vec<Error>) -> TokenStream {
-    let mut output_tokens = Vec::new();
-
-    while let Some(token) = lexer.next() {
-        if let Err(_) = token {
-            continue;
-        }
-
-        let token_span = lexer.span();
-        let token_span = Span::new(token_span.start, token_span.end);
-        
-        match token.unwrap() {
-            LogosToken::Ident(str) => read_ident(&mut output_tokens, errs, str, token_span),
-            LogosToken::UnsuffixedIntLiteral(str) => read_unsuffixed_int(&mut output_tokens, errs, str, token_span),
-            LogosToken::SuffixedIntLiteral(str) => read_suffixed_int(&mut output_tokens, errs, str, token_span),
-            LogosToken::UnsuffixedFloatLiteral(str) => read_unsuffixed_float(&mut output_tokens, errs, str, token_span),
-            LogosToken::SuffixedFloatLiteral(str) => read_suffixed_float(&mut output_tokens, errs, str, token_span),
-            LogosToken::Punct(str) => read_punct(&mut output_tokens, errs, str, token_span),
-            LogosToken::GroupOpen(str) => {
-                let (group, escaped_closer) = read_group(
-                    Delimiter::from_open_str(str).unwrap(),
-                    token_span,
-                    &mut lexer,
-                    errs
+fn read(mut tokens: TokenIter, errs: &mut Vec<Error>) -> TokenStream {
+    fn read_token(token: Token, output: &mut Vec<TokenTree>, errs: &mut Vec<Error>) {
+        match token.ty {
+            TokenType::Ident => output.push(
+                if let Some(keyword) = Keyword::parse(token.str, token.span.start()) {
+                    TokenTree::Keyword(keyword)
+                }
+                else {
+                    TokenTree::Ident(Ident {
+                        str: token.str.to_string(),
+                        span_start: token.span.start(),
+                    })
+                }
+            ),
+            TokenType::UnsuffixedIntLiteral => output.push(
+                TokenTree::Literal(Literal::Int(IntLiteral {
+                    value: token.str.to_string(),
+                    suffix: None,
+                    span: token.span,
+                }))
+            ),
+            TokenType::SuffixedIntLiteral => {
+                let (value_str, suffix_str) = token.str.split_at(token.str.find(|c: char| c.is_alphabetic()).unwrap());
+                output.push(
+                    TokenTree::Literal(Literal::Int(IntLiteral {
+                        value: value_str.to_string(),
+                        suffix: IntSuffix::from_str(suffix_str).ok().or_else(|| {
+                            errs.push(Error::from_messages(token.span, [
+                                errm::expected_found(IntSuffix::type_desc(), Description::quote(suffix_str)),
+                                errm::valid_forms_are(IntSuffix::VALUES.map(|suffix| suffix.desc()))
+                            ]));
+                        
+                            Some(
+                                IntSuffix::default()
+                            )
+                        }),
+                        span: token.span,
+                    }))
                 );
-                
-                output_tokens.push(TokenTree::Group(group));
-
-                if let Some((close_delimiter, _)) = escaped_closer {
-                    errs.push(Error::from_messages(token_span, [
-                        ErrorMessage::Problem(format!("closing delimiter without a group to close")),
-                        errm::unmatched_delimiter(close_delimiter.open_desc()),
-                        errm::expected(close_delimiter.close_desc()),
-                    ]));
+            },
+            TokenType::UnsuffixedFloatLiteral => output.push(
+                TokenTree::Literal(Literal::Float(FloatLiteral {
+                    value: token.str.to_string(),
+                    suffix: None,
+                    span: token.span,
+                }))
+            ),
+            TokenType::SuffixedFloatLiteral => {
+                let (value_str, suffix_str) = token.str.split_at(token.str.find(|c: char| c.is_alphabetic()).unwrap());
+                output.push(
+                    TokenTree::Literal(Literal::Float(FloatLiteral {
+                        value: value_str.to_string(),
+                        suffix: FloatSuffix::from_str(suffix_str).ok().or_else(|| {
+                            errs.push(Error::from_messages(token.span, [
+                                errm::expected_found(FloatSuffix::type_desc(), Description::quote(suffix_str)),
+                                errm::valid_forms_are(FloatSuffix::VALUES.map(|suffix| suffix.desc()))
+                            ]));
+            
+                            Some(
+                                FloatSuffix::default()
+                            )
+                        }),
+                        span: token.span,
+                    }))
+                );
+            }
+            TokenType::Punct => output.push(
+                TokenTree::Punct(Punct::parse(token.str, token.span.start()).unwrap())
+            ),
+            TokenType::GroupOpen => {
+                unreachable!()
+            }
+            TokenType::GroupClose => {
+                unreachable!()
+            }
+            TokenType::Invalid => errs.push(Error::from_messages(token.span, [
+                errm::is_not(Description::quote(token.str), Token::type_desc())
+            ]))
+        }
+    }
+    fn read_group<'a>(open: Token, tokens: &mut TokenIter, errs: &mut Vec<Error>) -> ReadGroupOutput {
+        #[inline(always)]
+        fn read_group_close(open: GroupEdge, close: GroupEdge, stream: TokenStream, errs: &mut Vec<Error>) -> ReadGroupOutput {
+            if close.delimiter == open.delimiter {
+                ReadGroupOutput {
+                    group: Group {
+                        delimiter: open.delimiter,
+                        stream: stream,
+                        span: open.span.connect(close.span),
+                    },
+                    escaped_group_close: None,
                 }
             }
-            LogosToken::GroupClose(str) => {
-                let close_delimiter = Delimiter::from_close_str(str).unwrap();
+            else {
+                errs.push(Error::from_messages(open.span, [
+                    errm::unmatched_delimiter(open.delimiter.open_desc()),
+                    errm::expected_found(open.delimiter.close_desc(), close.delimiter.close_desc()),
+                ]));
+    
+                ReadGroupOutput {
+                    group: Group {
+                        delimiter: open.delimiter,
+                        span: open.span.connect(stream.span),
+                        stream: stream,
+                    },
+                    escaped_group_close: Some(close),
+                }
+            }
+        }
+    
+        let open = GroupEdge {
+            delimiter: Delimiter::from_open_str(open.str).unwrap(),
+            span: open.span,
+        };
+    
+        let mut output = Vec::new();
+    
+        while let Some(token) = tokens.next() {        
+            match token.ty {
+                TokenType::GroupOpen => {
+                    let ReadGroupOutput { group, escaped_group_close } = read_group(token, tokens, errs);
+                    
+                    output.push(TokenTree::Group(group));
+    
+                    if let Some(escaped_group_close) = escaped_group_close {
+                        return read_group_close(open, escaped_group_close, output.into(), errs)
+                    }
+                }
+                TokenType::GroupClose => {
+                    let close = GroupEdge {
+                        delimiter: Delimiter::from_close_str(token.str).unwrap(),
+                        span: token.span,
+                    };
+    
+                    return read_group_close(open, close, output.into(), errs)
+                }
+                _ => {
+                    read_token(token, &mut output, errs)
+                }
+            }
+        };
+        
+        '_group_unclosed: {
+            let stream = TokenStream::from(output);
+            let span = open.span.connect(stream.span);
+        
+            errs.push(
+                Error::from_messages(span, [
+                    errm::unmatched_delimiter(open.delimiter.open_desc()),
+                    errm::unexpected_end_of_file(),
+                    errm::expected(open.delimiter.close_desc())
+                ])
+            );
+    
+            ReadGroupOutput {
+                group: Group {
+                    delimiter: open.delimiter,
+                    stream,
+                    span,
+                },
+                escaped_group_close: None,
+            }
+        }
+    }
+    #[inline(always)]
+    fn read_close(close: GroupEdge, errs: &mut Vec<Error>) {
+        errs.push(Error::from_messages(close.span, [
+            ErrorMessage::Problem(format!("closing delimiter without a group to close")),
+            errm::unmatched_delimiter(close.delimiter.open_desc()),
+            errm::expected(close.delimiter.close_desc()),
+        ]));
+    }
+
+    let mut output = Vec::new();
+
+    while let Some(token) = tokens.next() {
+        match token.ty {
+            TokenType::GroupOpen => {
+                let ReadGroupOutput { group, escaped_group_close } = read_group(token, &mut tokens, errs);
                 
-                errs.push(Error::from_messages(token_span, [
+                output.push(TokenTree::Group(group));
+
+                if let Some(escaped_group_close) = escaped_group_close {
+                    read_close(escaped_group_close, errs)
+                }
+            }
+            TokenType::GroupClose => {
+                let close_delimiter = Delimiter::from_close_str(token.str).unwrap();
+                
+                errs.push(Error::from_messages(token.span, [
                     ErrorMessage::Problem(format!("closing delimiter without a group to close")),
                     errm::unmatched_delimiter(close_delimiter.open_desc()),
                     errm::expected(close_delimiter.close_desc()),
                 ]));
             }
-            LogosToken::NotAToken(str) => {
-                errs.push(Error::from_messages(token_span, [
-                    errm::is_not(Description::quote(str), Description::new("a token"))
-                ]))
+            _ => {
+                read_token(token, &mut output, errs)
             }
-            LogosToken::Whitespace => {
-
-            },
         }
     };
     
-    TokenStream::new(output_tokens)
-}
-fn read_group<'a>(open_delimiter: Delimiter, open_span: Span, lexer: &mut Lexer<'a, LogosToken<'a>>, errs: &mut Vec<Error>) -> (Group, Option<(Delimiter, Span)>) {
-    let mut output_tokens = Vec::new();
-
-    while let Some(token) = lexer.next() {
-        if let Err(_) = token {
-            continue;
-        }
-
-        let token_span = lexer.span();
-        let token_span = Span::new(token_span.start, token_span.end);
-        
-        match token.unwrap() {
-            LogosToken::Ident(str) => read_ident(&mut output_tokens, errs, str, token_span),
-            LogosToken::UnsuffixedIntLiteral(str) => read_unsuffixed_int(&mut output_tokens, errs, str, token_span),
-            LogosToken::SuffixedIntLiteral(str) => read_suffixed_int(&mut output_tokens, errs, str, token_span),
-            LogosToken::UnsuffixedFloatLiteral(str) => read_unsuffixed_float(&mut output_tokens, errs, str, token_span),
-            LogosToken::SuffixedFloatLiteral(str) => read_suffixed_float(&mut output_tokens, errs, str, token_span),
-            LogosToken::Punct(str) => read_punct(&mut output_tokens, errs, str, token_span),
-            LogosToken::GroupOpen(str) => {
-                let (group, escaped_closer) = read_group(
-                    Delimiter::from_open_str(str).unwrap(),
-                    token_span,
-                    lexer,
-                    errs
-                );
-                
-                output_tokens.push(TokenTree::Group(group));
-
-                if let Some((close_delimiter, close_span)) = escaped_closer {
-                    let group_delimiter = open_delimiter;
-                    let group_stream = TokenStream::new(output_tokens);
-                    
-                    let (group_span, excaped_closer) =
-                    if close_delimiter == open_delimiter {
-                        (
-                            Span::connect(open_span, close_span),
-                            None
-                        )
-                    }
-                    else {
-                        errs.push(Error::from_messages(open_span, [
-                            errm::unmatched_delimiter(open_delimiter.open_desc()),
-                            errm::expected_found(open_delimiter.close_desc(), close_delimiter.close_desc()),
-                        ]));
-    
-                        (
-                            Span::connect(open_span, group_stream.span),
-                            Some(
-                                (close_delimiter, token_span)
-                            )
-                        )
-                    };
-    
-                    return (
-                        Group {
-                            delimiter: group_delimiter,
-                            stream: group_stream,
-                            span: group_span,
-                        },
-                        excaped_closer
-                    );
-                }
-            }
-            LogosToken::GroupClose(str) => {
-                let close_delimiter = Delimiter::from_close_str(str).unwrap();
-
-                let group_delimiter = open_delimiter;
-                let group_stream = TokenStream::new(output_tokens);
-                
-                let (group_span, excaped_closer) =
-                if close_delimiter == open_delimiter {
-                    (
-                        Span::connect(open_span, token_span),
-                        None
-                    )
-                }
-                else {
-                    errs.push(Error::from_messages(open_span, [
-                        errm::unmatched_delimiter(open_delimiter.open_desc()),
-                        errm::expected_found(open_delimiter.close_desc(), close_delimiter.close_desc()),
-                    ]));
-
-                    (
-                        Span::connect(open_span, group_stream.span),
-                        Some(
-                            (close_delimiter, token_span)
-                        )
-                    )
-                };
-
-                return (
-                    Group {
-                        delimiter: group_delimiter,
-                        stream: group_stream,
-                        span: group_span,
-                    },
-                    excaped_closer
-                );
-            }
-            LogosToken::NotAToken(str) => {
-                errs.push(Error::from_messages(token_span, [
-                    errm::is_not(Description::quote(str), Description::new("a token"))
-                ]))
-            }
-            LogosToken::Whitespace => {
-
-            },
-        }
-    };
-    
-    let group_delimiter = open_delimiter;
-    let group_stream = TokenStream::new(output_tokens);
-    let group_span = Span::connect(open_span, group_stream.span);
-
-    errs.push(
-        Error::from_messages(group_span, [
-            unmatched_delimiter(group_delimiter.open_desc()),
-            unexpected_end_of_file(),
-            expected(group_delimiter.close_desc())
-        ])
-    );
-
-    (
-        Group {
-            delimiter: group_delimiter,
-            stream: group_stream,
-            span: group_span,
-        },
-        None
-    )
-}
-fn read_ident(output: &mut Vec<TokenTree>, _errs: &mut Vec<Error>, str: &str, span: Span) {
-    output.push(
-        if let Some(keyword) = Keyword::parse(str, span.start()) {
-            TokenTree::Keyword(keyword)
-        }
-        else {
-            TokenTree::Ident(Ident {
-                str: str.to_string(),
-                start: span.start(),
-            })
-        }
-    )
-}
-fn read_unsuffixed_int(output: &mut Vec<TokenTree>, _errs: &mut Vec<Error>, str: &str, span: Span) {
-    output.push(TokenTree::Literal(Literal::Int(IntLiteral {
-        value: str.to_string(),
-        suffix: None,
-        span: span,
-    })));
-}
-fn read_suffixed_int(output: &mut Vec<TokenTree>, _errs: &mut Vec<Error>, str: &str, span: Span) {
-    let (value, suffix_str) = str.split_at(str.find(|c: char| c.is_alphabetic()).unwrap());
-    output.push(TokenTree::Literal(Literal::Int(IntLiteral {
-        value: value.to_string(),
-        suffix: IntSuffix::from_str(suffix_str).ok().or_else(|| {
-            _errs.push(Error::from_messages(span, [
-                errm::expected_found(IntSuffix::type_desc(), Description::quote(suffix_str)),
-                errm::valid_forms_are(IntSuffix::VALUES.map(|suffix| suffix.desc()))
-            ]));
-            
-            Some(
-                IntSuffix::default()
-            )
-        }),
-        span,
-    })));
-}
-fn read_unsuffixed_float(output: &mut Vec<TokenTree>, _errs: &mut Vec<Error>, str: &str, span: Span) {
-    output.push(TokenTree::Literal(Literal::Float(FloatLiteral {
-        value: str.to_string(),
-        suffix: None,
-        span: span,
-    })));
-}
-fn read_suffixed_float(output: &mut Vec<TokenTree>, _errs: &mut Vec<Error>, str: &str, span: Span) {
-    let (value, suffix_str) = str.split_at(str.find(|c: char| c.is_alphabetic()).unwrap());
-    output.push(TokenTree::Literal(Literal::Float(FloatLiteral {
-        value: value.to_string(),
-        suffix: FloatSuffix::from_str(suffix_str).ok().or_else(|| {
-            _errs.push(Error::from_messages(span, [
-                errm::expected_found(FloatSuffix::type_desc(), Description::quote(suffix_str)),
-                errm::valid_forms_are(FloatSuffix::VALUES.map(|suffix| suffix.desc()))
-            ]));
-
-            Some(
-                FloatSuffix::default()
-            )
-        }),
-        span,
-    })));
-}
-fn read_punct(output: &mut Vec<TokenTree>, _errs: &mut Vec<Error>, str: &str, span: Span) {
-    output.push(TokenTree::Punct(Punct::parse(str, span.start()).unwrap()));
+    output.into()
 }
