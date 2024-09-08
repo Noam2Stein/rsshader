@@ -1,5 +1,6 @@
 use std::{write, fmt::{self, Display, Formatter}, str::FromStr};
-use logos::Logos;
+use errm::{expected, unexpected_end_of_file, unmatched_delimiter};
+use logos::{Lexer, Logos};
 
 use crate::{desc::*, error::*, span::*};
 
@@ -15,183 +16,37 @@ use punct::Punct;
 use literal::{Literal, IntLiteral, IntSuffix, FloatLiteral, FloatSuffix};
 use group::{Group, Delimiter};
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub struct TokenStream {
-    pub tts: Vec<TokenTree>,
+    pub tokens: Vec<TokenTree>,
     pub span: Span,
 }
 impl TokenStream {
-    pub fn new(tts: Vec<TokenTree>) -> Self {
+    pub fn new(tokens: Vec<TokenTree>) -> Self {
         Self {
-            span: if tts.len() > 0 {
-                Span::connect(tts[0].span(), tts.last().unwrap().span())
+            span: if tokens.len() > 0 {
+                Span::connect(tokens[0].span(), tokens.last().unwrap().span())
             }
             else {
-                Span::ZERO
+                Span::EMPTY
             },
-            tts,
+            tokens: tokens,
         }
     }
     pub fn iter<'a>(&'a self) -> TokenStreamIter<'a> {
         TokenStreamIter {
             stream: self,
-            iter: self.tts.iter()
+            iter: self.tokens.iter()
         }
     }
 
-    pub fn parse(source: &str, errs: &mut Vec<Error>) -> Self {
-        let mut lexer = LogosToken::lexer(source);
-    
-        let mut layers = vec![Vec::new()];
-    
-        while let Some(token) = lexer.next() {
-            if let Err(_) = token {
-                continue;
-            }
-    
-            let span = lexer.span();
-            let span = Span::new(span.start, span.end);
-            
-            match token.unwrap() {
-                LogosToken::Ident(ident) => layers.last_mut().unwrap().push(
-                    if let Some(keyword) = Keyword::parse(ident, span.start) {
-                        TokenTree::Keyword(keyword)
-                    }
-                    else {
-                        TokenTree::Ident(Ident {
-                            str: ident.to_string(),
-                            start: span.start,
-                        })
-                    }
-                ),
-                LogosToken::UnsuffixedIntLiteral(str) => {
-                    layers.last_mut().unwrap().push(TokenTree::Literal(Literal::Int(IntLiteral {
-                        value: str.to_string(),
-                        suffix: None,
-                        span,
-                    })));
-                }
-                LogosToken::SuffixedIntLiteral(str) => {
-                    let (value, suffix_str) = str.split_at(str.find(|c: char| c.is_alphabetic()).unwrap());
-                    layers.last_mut().unwrap().push(TokenTree::Literal(Literal::Int(IntLiteral {
-                        value: value.to_string(),
-                        suffix: IntSuffix::from_str(suffix_str).ok().or_else(|| {
-                            errs.push(Error::from_messages(span, [
-                                errm::expected_found(IntSuffix::type_desc(), Description::quote(suffix_str)),
-                                errm::valid_forms_are(IntSuffix::VALUES.map(|suffix| suffix.desc()))
-                            ]));
-                            
-                            Some(
-                                IntSuffix::default()
-                            )
-                        }),
-                        span,
-                    })));
-                }
-                LogosToken::UnsuffixedFloatLiteral(str) => {
-                    layers.last_mut().unwrap().push(TokenTree::Literal(Literal::Float(FloatLiteral {
-                        value: str.to_string(),
-                        suffix: None,
-                        span,
-                    })));
-                }
-                LogosToken::SuffixedFloatLiteral(str) => {
-                    let (value, suffix_str) = str.split_at(str.find(|c: char| c.is_alphabetic()).unwrap());
-                    layers.last_mut().unwrap().push(TokenTree::Literal(Literal::Float(FloatLiteral {
-                        value: value.to_string(),
-                        suffix: FloatSuffix::from_str(suffix_str).ok().or_else(|| {
-                            errs.push(Error::from_messages(span, [
-                                errm::expected_found(FloatSuffix::type_desc(), Description::quote(suffix_str)),
-                                errm::valid_forms_are(FloatSuffix::VALUES.map(|suffix| suffix.desc()))
-                            ]));
-
-                            Some(
-                                FloatSuffix::default()
-                            )
-                        }),
-                        span,
-                    })));
-                },
-                LogosToken::Punct(str) => {
-                    layers.last_mut().unwrap().push(TokenTree::Punct(Punct::parse(str, span.start).unwrap()));
-                },
-                LogosToken::GroupOpen(str) => {
-                    layers.last_mut().unwrap().push(TokenTree::Group(Group {
-                        delimiter: Delimiter::from_open_char(str.chars().next().unwrap()).unwrap(),
-                        stream: TokenStream::default(),
-                        span: Span::new(span.start, source.len()),
-                    }));
-    
-                    layers.push(Vec::new());
-                }
-                LogosToken::GroupClose(str) => {
-                    let delimiter = Delimiter::from_close_char(str.chars().next().unwrap()).unwrap();
-                    
-                    loop {
-                        if layers.len() > 1 {
-                            let stream = TokenStream::new(layers.pop().unwrap());
-                            if let TokenTree::Group(group) = layers.last_mut().unwrap().last_mut().unwrap() {
-                                group.stream = stream;
-                                
-                                if delimiter == group.delimiter {
-                                    group.span.end = span.end;
-                                    break;
-                                }
-                                else {
-                                    group.span.end = group.stream.span.end;
-                                    
-                                    errs.push(Error::from_messages(group.span, [
-                                        errm::unmatched_delimiter(group.delimiter.open_desc()),
-                                        errm::expected_found(group.delimiter.close_desc(), delimiter.close_desc()),
-                                    ]))
-                                }
-                            }
-                            else {
-                                unreachable!()
-                            };
-                        }
-                        else {
-                            errs.push(Error::from_messages(span, [
-                                errm::unmatched_delimiter(delimiter.close_desc()),
-                                errm::expected(delimiter.open_desc()),
-                            ]))
-                        }
-                    }
-                }
-                LogosToken::NotAToken(str) => {
-                    errs.push(Error::from_messages(span, [
-                        errm::is_not(Description::quote(str), Description::new("a token"))
-                    ]))
-                }
-                LogosToken::Whitespace => {
-    
-                },
-            }
-        }
-    
-        while layers.len() > 1 {
-            let tts = layers.pop().unwrap();
-    
-            if let TokenTree::Group(group) = layers.last_mut().unwrap().last_mut().unwrap() {
-                group.stream = TokenStream::new(tts, );
-                
-                errs.push(Error::from_messages(group.span(), [
-                    errm::unmatched_delimiter(group.delimiter.open_desc()),
-                    errm::unexpected_end_of_file(),
-                    errm::expected(group.delimiter.close_desc())
-                ]))
-            }
-            else {
-                unreachable!()
-            }
-        }
-    
-        Self::new(layers.into_iter().next().unwrap())
-    }
+    pub fn parse(src: &str, errs: &mut Vec<Error>) -> Self {
+        read(LogosToken::lexer(src), errs)
+    }    
 }
 impl Display for TokenStream {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.tts.iter().map(|tt| tt.to_string()).collect::<Box<[String]>>().join(" "))
+        write!(f, "{}", self.tokens.iter().map(|tt| tt.to_string()).collect::<Box<[String]>>().join(" "))
     }
 }
 impl Describe for TokenStream {
@@ -207,14 +62,6 @@ impl TypeDescribe for TokenStream {
 impl From<Vec<TokenTree>> for TokenStream {
     fn from(value: Vec<TokenTree>) -> Self {
         Self::new(value)
-    }
-}
-impl Default for TokenStream {
-    fn default() -> Self {
-        Self {
-            tts: Vec::new(),
-            span: Span::ZERO
-        }
     }
 }
 
@@ -306,7 +153,7 @@ impl<'a> FromTokens<'a> for TokenTree {
             )
         }
         else {
-            Err(Error::from_messages(stream.span().end(), [
+            Err(Error::from_messages(stream.span().last_byte(), [
                 errm::unexpected_end_of_file(),
                 errm::expected(Self::type_desc())
             ]))
@@ -336,4 +183,306 @@ enum LogosToken<'a> {
     Whitespace,
     #[regex(r"[^\x00-\x7F]+")]
     NotAToken(&'a str),
+}
+
+fn read<'a>(mut lexer: Lexer<'a, LogosToken<'a>>, errs: &mut Vec<Error>) -> TokenStream {
+    let mut output_tokens = Vec::new();
+
+    while let Some(token) = lexer.next() {
+        if let Err(_) = token {
+            continue;
+        }
+
+        let token_span = lexer.span();
+        let token_span = Span::new(token_span.start, token_span.end);
+        
+        match token.unwrap() {
+            LogosToken::Ident(ident) => output_tokens.push(
+                if let Some(keyword) = Keyword::parse(ident, token_span.start()) {
+                    TokenTree::Keyword(keyword)
+                }
+                else {
+                    TokenTree::Ident(Ident {
+                        str: ident.to_string(),
+                        start: token_span.start(),
+                    })
+                }
+            ),
+            LogosToken::UnsuffixedIntLiteral(str) => {
+                output_tokens.push(TokenTree::Literal(Literal::Int(IntLiteral {
+                    value: str.to_string(),
+                    suffix: None,
+                    span: token_span,
+                })));
+            }
+            LogosToken::SuffixedIntLiteral(str) => {
+                let (value, suffix_str) = str.split_at(str.find(|c: char| c.is_alphabetic()).unwrap());
+                output_tokens.push(TokenTree::Literal(Literal::Int(IntLiteral {
+                    value: value.to_string(),
+                    suffix: IntSuffix::from_str(suffix_str).ok().or_else(|| {
+                        errs.push(Error::from_messages(token_span, [
+                            errm::expected_found(IntSuffix::type_desc(), Description::quote(suffix_str)),
+                            errm::valid_forms_are(IntSuffix::VALUES.map(|suffix| suffix.desc()))
+                        ]));
+                        
+                        Some(
+                            IntSuffix::default()
+                        )
+                    }),
+                    span: token_span,
+                })));
+            }
+            LogosToken::UnsuffixedFloatLiteral(str) => {
+                output_tokens.push(TokenTree::Literal(Literal::Float(FloatLiteral {
+                    value: str.to_string(),
+                    suffix: None,
+                    span: token_span,
+                })));
+            }
+            LogosToken::SuffixedFloatLiteral(str) => {
+                let (value, suffix_str) = str.split_at(str.find(|c: char| c.is_alphabetic()).unwrap());
+                output_tokens.push(TokenTree::Literal(Literal::Float(FloatLiteral {
+                    value: value.to_string(),
+                    suffix: FloatSuffix::from_str(suffix_str).ok().or_else(|| {
+                        errs.push(Error::from_messages(token_span, [
+                            errm::expected_found(FloatSuffix::type_desc(), Description::quote(suffix_str)),
+                            errm::valid_forms_are(FloatSuffix::VALUES.map(|suffix| suffix.desc()))
+                        ]));
+
+                        Some(
+                            FloatSuffix::default()
+                        )
+                    }),
+                    span: token_span,
+                })));
+            },
+            LogosToken::Punct(str) => {
+                output_tokens.push(TokenTree::Punct(Punct::parse(str, token_span.start()).unwrap()));
+            },
+            LogosToken::GroupOpen(str) => {
+                let (group, escaped_closer) = read_group(
+                    Delimiter::from_open_str(str).unwrap(),
+                    token_span,
+                    &mut lexer,
+                    errs
+                );
+                
+                output_tokens.push(TokenTree::Group(group));
+
+                if let Some((close_delimiter, _)) = escaped_closer {
+                    errs.push(Error::from_messages(token_span, [
+                        ErrorMessage::Problem(format!("closing delimiter without a group to close")),
+                        errm::unmatched_delimiter(close_delimiter.open_desc()),
+                        errm::expected(close_delimiter.close_desc()),
+                    ]));
+                }
+            }
+            LogosToken::GroupClose(str) => {
+                let close_delimiter = Delimiter::from_close_str(str).unwrap();
+                
+                errs.push(Error::from_messages(token_span, [
+                    ErrorMessage::Problem(format!("closing delimiter without a group to close")),
+                    errm::unmatched_delimiter(close_delimiter.open_desc()),
+                    errm::expected(close_delimiter.close_desc()),
+                ]));
+            }
+            LogosToken::NotAToken(str) => {
+                errs.push(Error::from_messages(token_span, [
+                    errm::is_not(Description::quote(str), Description::new("a token"))
+                ]))
+            }
+            LogosToken::Whitespace => {
+
+            },
+        }
+    };
+    
+    TokenStream::new(output_tokens)
+}
+fn read_group<'a>(open_delimiter: Delimiter, open_span: Span, lexer: &mut Lexer<'a, LogosToken<'a>>, errs: &mut Vec<Error>) -> (Group, Option<(Delimiter, Span)>) {
+    let mut output_tokens = Vec::new();
+
+    while let Some(token) = lexer.next() {
+        if let Err(_) = token {
+            continue;
+        }
+
+        let token_span = lexer.span();
+        let token_span = Span::new(token_span.start, token_span.end);
+        
+        match token.unwrap() {
+            LogosToken::Ident(ident) => output_tokens.push(
+                if let Some(keyword) = Keyword::parse(ident, token_span.start()) {
+                    TokenTree::Keyword(keyword)
+                }
+                else {
+                    TokenTree::Ident(Ident {
+                        str: ident.to_string(),
+                        start: token_span.start(),
+                    })
+                }
+            ),
+            LogosToken::UnsuffixedIntLiteral(str) => {
+                output_tokens.push(TokenTree::Literal(Literal::Int(IntLiteral {
+                    value: str.to_string(),
+                    suffix: None,
+                    span: token_span,
+                })));
+            }
+            LogosToken::SuffixedIntLiteral(str) => {
+                let (value, suffix_str) = str.split_at(str.find(|c: char| c.is_alphabetic()).unwrap());
+                output_tokens.push(TokenTree::Literal(Literal::Int(IntLiteral {
+                    value: value.to_string(),
+                    suffix: IntSuffix::from_str(suffix_str).ok().or_else(|| {
+                        errs.push(Error::from_messages(token_span, [
+                            errm::expected_found(IntSuffix::type_desc(), Description::quote(suffix_str)),
+                            errm::valid_forms_are(IntSuffix::VALUES.map(|suffix| suffix.desc()))
+                        ]));
+                        
+                        Some(
+                            IntSuffix::default()
+                        )
+                    }),
+                    span: token_span,
+                })));
+            }
+            LogosToken::UnsuffixedFloatLiteral(str) => {
+                output_tokens.push(TokenTree::Literal(Literal::Float(FloatLiteral {
+                    value: str.to_string(),
+                    suffix: None,
+                    span: token_span,
+                })));
+            }
+            LogosToken::SuffixedFloatLiteral(str) => {
+                let (value, suffix_str) = str.split_at(str.find(|c: char| c.is_alphabetic()).unwrap());
+                output_tokens.push(TokenTree::Literal(Literal::Float(FloatLiteral {
+                    value: value.to_string(),
+                    suffix: FloatSuffix::from_str(suffix_str).ok().or_else(|| {
+                        errs.push(Error::from_messages(token_span, [
+                            errm::expected_found(FloatSuffix::type_desc(), Description::quote(suffix_str)),
+                            errm::valid_forms_are(FloatSuffix::VALUES.map(|suffix| suffix.desc()))
+                        ]));
+
+                        Some(
+                            FloatSuffix::default()
+                        )
+                    }),
+                    span: token_span,
+                })));
+            },
+            LogosToken::Punct(str) => {
+                output_tokens.push(TokenTree::Punct(Punct::parse(str, token_span.start()).unwrap()));
+            },
+            LogosToken::GroupOpen(str) => {
+                let (group, escaped_closer) = read_group(
+                    Delimiter::from_open_str(str).unwrap(),
+                    token_span,
+                    lexer,
+                    errs
+                );
+                
+                output_tokens.push(TokenTree::Group(group));
+
+                if let Some((close_delimiter, close_span)) = escaped_closer {
+                    let group_delimiter = open_delimiter;
+                    let group_stream = TokenStream::new(output_tokens);
+                    
+                    let (group_span, excaped_closer) =
+                    if close_delimiter == open_delimiter {
+                        (
+                            Span::connect(open_span, close_span),
+                            None
+                        )
+                    }
+                    else {
+                        errs.push(Error::from_messages(open_span, [
+                            errm::unmatched_delimiter(open_delimiter.open_desc()),
+                            errm::expected_found(open_delimiter.close_desc(), close_delimiter.close_desc()),
+                        ]));
+    
+                        (
+                            Span::connect(open_span, group_stream.span),
+                            Some(
+                                (close_delimiter, token_span)
+                            )
+                        )
+                    };
+    
+                    return (
+                        Group {
+                            delimiter: group_delimiter,
+                            stream: group_stream,
+                            span: group_span,
+                        },
+                        excaped_closer
+                    );
+                }
+            }
+            LogosToken::GroupClose(str) => {
+                let close_delimiter = Delimiter::from_close_str(str).unwrap();
+
+                let group_delimiter = open_delimiter;
+                let group_stream = TokenStream::new(output_tokens);
+                
+                let (group_span, excaped_closer) =
+                if close_delimiter == open_delimiter {
+                    (
+                        Span::connect(open_span, token_span),
+                        None
+                    )
+                }
+                else {
+                    errs.push(Error::from_messages(open_span, [
+                        errm::unmatched_delimiter(open_delimiter.open_desc()),
+                        errm::expected_found(open_delimiter.close_desc(), close_delimiter.close_desc()),
+                    ]));
+
+                    (
+                        Span::connect(open_span, group_stream.span),
+                        Some(
+                            (close_delimiter, token_span)
+                        )
+                    )
+                };
+
+                return (
+                    Group {
+                        delimiter: group_delimiter,
+                        stream: group_stream,
+                        span: group_span,
+                    },
+                    excaped_closer
+                );
+            }
+            LogosToken::NotAToken(str) => {
+                errs.push(Error::from_messages(token_span, [
+                    errm::is_not(Description::quote(str), Description::new("a token"))
+                ]))
+            }
+            LogosToken::Whitespace => {
+
+            },
+        }
+    };
+    
+    let group_delimiter = open_delimiter;
+    let group_stream = TokenStream::new(output_tokens);
+    let group_span = Span::connect(open_span, group_stream.span);
+
+    errs.push(
+        Error::from_messages(group_span, [
+            unmatched_delimiter(group_delimiter.open_desc()),
+            unexpected_end_of_file(),
+            expected(group_delimiter.close_desc())
+        ])
+    );
+
+    (
+        Group {
+            delimiter: group_delimiter,
+            stream: group_stream,
+            span: group_span,
+        },
+        None
+    )
 }

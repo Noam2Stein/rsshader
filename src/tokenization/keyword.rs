@@ -76,7 +76,7 @@ impl<'a> FromTokens<'a> for Keyword {
             }
         }
         else {
-            Err(Error::from_messages(stream.span().end(), [
+            Err(Error::from_messages(stream.span().last_byte(), [
                 errm::unexpected_end_of_file(),
                 errm::expected(Self::type_desc())
             ]))

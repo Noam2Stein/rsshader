@@ -12,6 +12,7 @@ const SRC: &str = "
 
     {
         (
+        (
     }
 
 ";
@@ -60,17 +61,15 @@ fn main() {
     }
 }
 fn format_src(errs: &[Error]) -> String {
-    let mut src = SRC.to_string();
     let mut err_spans = errs.iter().map(|err| err.span).collect::<Vec<Span>>();
-
     err_spans.sort();
-    
+
     let mut index = 0;
     while index + 1 < err_spans.len() {
         let span = err_spans[index];
         let next_span = err_spans[index + 1];
-
-        if span.end >= next_span.start {
+        
+        if span.intersects(&next_span) {
             err_spans[index] = Span::connect(span, next_span);
             err_spans.remove(index + 1);
         }
@@ -78,18 +77,16 @@ fn format_src(errs: &[Error]) -> String {
             index += 1;
         }
     }
-
+    
     err_spans.reverse();
-
+    let mut src = SRC.to_string();
     for span in err_spans {
-        src.insert_str(span.end, "\x1b[0m");
-        src.insert_str(span.start, "\x1b[31m");
+        src.insert_str(span.end(), "\x1b[0m");
+        src.insert_str(span.start(), "\x1b[31m");
     }
 
     let lines_strs = src.split("\n").collect::<Box<[&str]>>();
-
-    let offset = lines_strs.iter().map(|line| line.chars().position(|c| c != ' ').unwrap_or(usize::MAX)).min().unwrap();
-
+    let offset = lines_strs.iter().map(|line| line.char_indices().find(|(_, c)| *c != ' ').map(|(i, _)| i).unwrap_or(usize::MAX)).min().unwrap();
     (0..lines_strs.len()).map(|line| {
         let line_label = line_label(line);
 
@@ -105,7 +102,7 @@ fn format_src(errs: &[Error]) -> String {
     }).collect::<Box<[String]>>().join("\n")
 }
 fn span_line(span: Span) -> usize {
-    SRC[0..span.start].chars().filter(|c| *c == '\n').count()
+    SRC[0..span.start()].chars().filter(|c| *c == '\n').count()
 }
 fn line_label(line: usize) -> impl Display {
     line + 1

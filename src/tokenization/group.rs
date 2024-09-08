@@ -9,11 +9,13 @@ pub struct Group {
     pub span: Span,
 }
 impl Group {
+    #[inline(always)]
     pub fn open_span(&self) -> Span {
-        Span::new(self.span.start, self.span.start + 1)
+        self.span.first_byte()
     }
+    #[inline(always)]
     pub fn close_span(&self) -> Span {
-        Span::new(self.span.end - 1, self.span.end)
+        self.span.last_byte()
     }
 
     pub fn from_tokens_with(delimiter: Delimiter, stream: &mut TokenStreamIter) -> Result<Self> {
@@ -37,7 +39,7 @@ impl Group {
             }
         }
         else {
-            Err(Error::from_messages(stream.span().end(), [
+            Err(Error::from_messages( stream.span().last_byte(), [
                 errm::unexpected_end_of_file(),
                 errm::expected(Self::type_desc())
             ]))
@@ -85,7 +87,7 @@ impl<'a> FromTokens<'a> for Group {
             }
         }
         else {
-            Err(Error::from_messages(stream.span().end(), [
+            Err(Error::from_messages(stream.span().last_byte(), [
                 errm::unexpected_end_of_file(),
                 errm::expected(Self::type_desc())
             ]))
@@ -114,6 +116,22 @@ impl Delimiter {
             ']' => Some(Self::Bracket),
             ')' => Some(Self::Parenthesis),
             _ => None,
+        }
+    }
+    pub fn from_open_str(str: &str) -> Option<Self> {
+        if str.len() == 1 {
+            Self::from_open_char(str.chars().next().unwrap())
+        }
+        else {
+            None
+        }
+    }
+    pub fn from_close_str(str: &str) -> Option<Self> {
+        if str.len() == 1 {
+            Self::from_close_char(str.chars().next().unwrap())
+        }
+        else {
+            None
         }
     }
 
