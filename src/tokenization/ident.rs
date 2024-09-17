@@ -1,85 +1,126 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::{desc::*, error::*, span::*, tokenization::{*, keyword::*}};
+use crate::{desc::*, error::*, span::*, src::*, tokenization::*};
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Ident {
-    str: String,
-    span_start: usize,
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Ident<'src> {
+    s: &'src str,
 }
-impl Ident {
-    pub fn parse(str: &str, span_start: usize) -> Result<Self, String> {        
-        if KEYWORDS.contains(&str) {
-            Err(format!("'{str}' is an invalid ident because it's a keyword"))
+impl<'src> Ident<'src> {
+    pub fn from_str(s: &'src str) -> Result<Self, String> {
+        if Keyword::STRS.contains(&s) {
+            Err(format!("'{s}' is a keyword and thus is an invalid ident"))
         }
-        else if str.len() == 0 {
-            Err(format!("an empty str is an invalid ident"))
+        else if s.len() == 0 {
+            Err(format!("'' is an invalid ident"))
         }
-        else if str.chars().any(|c| !c.is_ascii_alphabetic() && !c.is_ascii_digit() && !['_'].contains(&c)) {
-            Err(format!("'{str}' is an invalid ident because it contains invalid chars"))
+        else if s.chars().any(|c| !c.is_ascii_alphabetic() && !c.is_ascii_digit() && !['_'].contains(&c)) {
+            Err(format!("'{s}' is an invalid ident because it contains invalid chars"))
         }
-        else if str.chars().next().unwrap().is_ascii_digit() {
-            Err(format!("'{str}' is an invalid ident because it starts with a digit"))
+        else if s.chars().next().unwrap().is_ascii_digit() {
+            Err(format!("'{s}' is an invalid ident because it starts with a digit"))
         }
         else {
             Ok(
                 Self {
-                    str: str.to_string(),
-                    span_start,
+                    s,
                 }
             )
         }
     }
-    pub unsafe fn parse_unchecked(str: &str, span_start: usize) -> Self {
+    #[inline(always)]
+    pub const unsafe fn from_str_unchecked(s: &'src str) -> Self {
         Self {
-            str: str.to_string(),
-            span_start,
+            s
         }
     }
 
-    pub fn str(&self) -> &str {
-        &self.str
+    #[inline(always)]
+    pub const fn str(&self) -> &str {
+        &self.s
     }
 }
-impl Spanned for Ident {
-    fn span(&self) -> Span {
-        Span::new(self.span_start, self.span_start + self.str.len())
-    }
-}
-impl Display for Ident {
+impl<'src> Display for Ident<'src> {
+    #[inline(always)]
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.str)
+        self.s.fmt(f)
     }
 }
-impl Describe for Ident {
+impl<'src> RawSpannable for Ident<'src> {
+    type Spanned = SpannedIdent<'src>;
+}
+impl<'src> Describe for Ident<'src> {
     fn desc(&self) -> Description {
-        Description::quote(&self.str)
+        Description::quote(&self.s)
     }
 }
-impl TypeDescribe for Ident {
+impl<'src> TypeDescribe for Ident<'src> {
     fn type_desc() -> Description {
         Description::new("an ident")
     }
 }
-impl<'a> FromTokens<'a> for Ident {
-    fn from_tokens(stream: &mut TokenStreamIter) -> Result<Self, Error> {
-        if let Some(token) = stream.next() {
-            if let TokenTree::Ident(output) = token {
-                Ok(
-                    output.clone()
-                )
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct SpannedIdent<'src> {
+    inner: Ident<'src>,
+    span_start: usize,
+}
+impl<'src> SpannedIdent<'src> {
+    #[inline(always)]
+    pub const fn str(&self) -> &str {
+        &self.inner.str()
+    }
+}
+impl<'src> Display for SpannedIdent<'src> {
+    #[inline(always)]
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        self.inner.fmt(f)
+    }
+}
+impl<'src> RawSpannedSpannable for SpannedIdent<'src> {
+    type Inner = Ident<'src>;
+    fn inner(&self) -> &Self::Inner {
+        &self.inner
+    }
+    fn into_inner(self) -> Self::Inner {
+        self.inner
+    }
+}
+impl<'src> FromSrc<'src> for SpannedIdent<'src> {
+    fn from_src(src: &'src SrcFile, span: Span) -> Option<Self> {
+        Ident::from_str(&src[span]).ok().map(|inner| Self {
+            inner,
+            span_start: span.start(),
+        })
+    }
+}
+impl<'stream, 'src> FromTokens<'stream, 'src> for SpannedIdent<'src> {
+    fn from_tokens(tokens: &mut TokenStreamIter<'stream, 'src>, errs: &mut Vec<Error>) -> Self {
+        if let Some(token) = tokens.next() {
+            if let TokenTree::Ident(token) = token {
+                *token
             }
             else {
-                Err(Error::from_messages(token.span(), [
+                errs.push(Error::from_messages(token.span(), [
                     errm::expected_found(Self::type_desc(), token.token_type_desc())
-                ]))
+                ]));
+
+                Self {
+                    inner: Ident { s: "" },
+                    span_start: token.span().start(),
+                }
             }
         }
         else {
-            Err(Error::from_messages(stream.span().last_byte(), [
+            errs.push(Error::from_messages(tokens.stream().span().last_byte(), [
                 errm::unexpected_end_of_file(),
                 errm::expected(Self::type_desc())
-            ]))
+            ]));
+
+            Self {
+                inner: Ident { s: "" },
+                span_start: 0,
+            }
         }
     }
 }

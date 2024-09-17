@@ -23,7 +23,7 @@ fn main() {
 
         let output = {
             let stream = TokenStream::parse(SRC, &mut errs);
-
+            
             stream
         };
 

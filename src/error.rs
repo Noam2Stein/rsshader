@@ -44,14 +44,14 @@ impl Error {
         output
     }
 }
-impl Spanned for Error {
-    fn span(&self) -> Span {
-        self.span
-    }
-}
 impl Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.problems.join(". "))
+    }
+}
+impl Spanned for Error {
+    fn span(&self) -> Span {
+        self.span
     }
 }
 impl std::error::Error for Error {

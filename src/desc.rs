@@ -11,9 +11,9 @@ impl Description {
             str: str.into()
         }
     }
-    pub fn quote(str: impl Into<String>) -> Self {
+    pub fn quote(str: &str) -> Self {
         Self {
-            str: format!("'{}'", str.into())
+            str: format!("'{str}'")
         }
     }
     pub fn either(iter: impl IntoIterator<Item = Self>) -> Self {
