@@ -1,5 +1,3 @@
-use std::{fmt::{self, Display, Formatter}, str::FromStr};
-
 use super::*;
 
 #[inline(always)]
@@ -94,8 +92,8 @@ impl FromStr for Keyword {
         }
     }
 }
-impl RawSpannable for Keyword {
-    type Spanned = SpannedKeyword;
+impl WrapSpannable for Keyword {
+    type Wrapper = SpannedKeyword;
 }
 impl Describe for Keyword {
     #[inline(always)]
@@ -109,7 +107,7 @@ impl TypeDescribe for Keyword {
         Description::new("a keyword")
     }
 }
-impl<'src> TokenTypeValidation<'src> for Keyword {
+impl<'src> UnspannedTokenTypeValidation<'src> for Keyword {
     
 }
 
@@ -119,7 +117,7 @@ pub struct SpannedKeyword {
     span_start: usize,
 }
 impl SpannedKeyword {
-    pub const STRS: &'static [&'static str] = <Self as SpannedSpannable>::Inner::STRS;
+    pub const STRS: &'static [&'static str] = <Self as SpannedSpannable>::Unspanned::STRS;
 
     #[inline(always)]
     pub const fn str(&self) -> &'static str {
@@ -138,7 +136,7 @@ impl Spanned for SpannedKeyword {
         Span::sized(self.span_start, self.str().len())
     }
 }
-impl RawSpannedSpannable for SpannedKeyword {
+impl WrapSpanned for SpannedKeyword {
     type Inner = Keyword;
     #[inline(always)]
     fn inner(&self) -> &Self::Inner {
@@ -150,15 +148,32 @@ impl RawSpannedSpannable for SpannedKeyword {
     }
 }
 impl<'src> FromSrc<'src> for SpannedKeyword {
-    fn from_src(src: &'src SrcFile, span: Span) -> Option<Self> {
+    fn from_src(src: &'src SrcFile, span: Span, errs: &mut Vec<Error>) -> Self {
         let s = &src[span];
+        if let Some(position) = Self::STRS.iter().position(|keyword| s == *keyword) {
+            Self {
+                inner: Keyword {
+                    id: position as u8,
+                },
+                span_start: span.start()
+            }
+        }
+        else {
+            errs.push(Error::from_messages(span, [
+                errm::expected(Self::type_desc()),
+                errm::is_not(Description::quote(s), Self::type_desc())
+            ]));
 
-        Self::STRS.iter().position(|keyword| s == *keyword).map(|position| Self {
-            inner: Keyword {
-                id: position as u8,
-            },
-            span_start: span.start()
-        })
+            Self {
+                inner: Keyword { id: 0 },
+                span_start: span.start()
+            }
+        }
+    }
+}
+impl<'src> FromSrcUnchecked<'src> for SpannedKeyword {
+    unsafe fn from_src_unchecked(src: &'src SrcFile, span: Span, errs: &mut Vec<Error>) -> Self {
+        Self::from_src(src, span, errs)
     }
 }
 impl<'src> ParseTokens<'src> for SpannedKeyword {
@@ -184,9 +199,6 @@ impl<'src> ParseTokens<'src> for SpannedKeyword {
             Self { inner: Keyword { id: 0 }, span_start: src.span().last_byte().start() }
         }   
     }
-}
-impl<'src> TokenTypeValidation<'src> for SpannedKeyword {
-    
 }
 impl<'src> SpannedTokenTypeValidation<'src> for SpannedKeyword {
 

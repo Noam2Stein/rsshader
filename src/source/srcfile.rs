@@ -1,5 +1,7 @@
 use std::{mem, ops::Index};
 
+use super::span::{Span, Spanned};
+
 #[repr(transparent)]
 pub struct SrcFile {
     pub s: str

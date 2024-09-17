@@ -1,3 +1,7 @@
+use crate::tokenization::*;
+
+use super::*;
+
 pub trait Spannable: Sized {
     type Spanned: SpannedSpannable<Unspanned = Self>;
 }
@@ -33,8 +37,14 @@ impl<'src, T: WrapSpannable<Wrapper: ParseTokens<'src>>> ParseTokens<'src> for T
 }
 impl<'src, T: WrapSpannable<Wrapper: FromSrc<'src>>> FromSrc<'src> for T {
     #[inline(always)]
-    fn from_src(src: &'src SrcFile, span: Span) -> Option<Self> {
-        T::Wrapper::from_src(src, span).map(|output| output.into_unspanned())
+    fn from_src(src: &'src SrcFile, span: Span, errs: &mut Vec<Error>) -> Self {
+        T::Wrapper::from_src(src, span, errs).into_unspanned()
+    }
+}
+impl<'src, T: WrapSpannable<Wrapper: FromSrcUnchecked<'src>>> FromSrcUnchecked<'src> for T {
+    #[inline(always)]
+    unsafe fn from_src_unchecked(src: &'src SrcFile, span: Span, errs: &mut Vec<Error>) -> Self {
+        T::Wrapper::from_src_unchecked(src, span, errs).into_unspanned()
     }
 }
 

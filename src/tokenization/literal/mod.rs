@@ -1,6 +1,4 @@
-use std::{fmt::{self, Display, Formatter}, str::FromStr};
-
-use crate::{desc::*, error::*, span::*, tokenization::*};
+use super::*;
 
 mod int;
 mod float;
@@ -89,7 +87,7 @@ impl<'src> ParseTokens<'src> for Literal<'src> {
         }
     }
 }
-impl<'src> TokenTypeValidation<'src> for Literal<'src> {
+impl<'src> UnspannedTokenTypeValidation<'src> for Literal<'src> {
     
 }
 
@@ -127,8 +125,8 @@ impl<'src> Spanned for SpannedLiteral<'src> {
     }
 }
 impl<'src> SpannedSpannable for SpannedLiteral<'src> {
-    type Inner = Literal<'src>;
-    fn into_unspanned(self) -> Self::Inner {
+    type Unspanned = Literal<'src>;
+    fn into_unspanned(self) -> Self::Unspanned {
         match self {
             Self::Int(literal) => Literal::Int(literal.into_unspanned()),
             Self::Float(literal) => Literal::Float(literal.into_unspanned()),
@@ -169,7 +167,7 @@ impl<'src> ParseTokens<'src> for SpannedLiteral<'src> {
         }   
     }
 }
-impl<'src> TokenTypeValidation<'src> for SpannedLiteral<'src> {
+impl<'src> UnspannedTokenTypeValidation<'src> for SpannedLiteral<'src> {
     
 }
 impl<'src> SpannedTokenTypeValidation<'src> for SpannedLiteral<'src> {

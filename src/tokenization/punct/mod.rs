@@ -1,6 +1,4 @@
-use std::{fmt::{self, Display, Formatter}, str::FromStr};
-
-use crate::{desc::*, error::*, span::*, src::*, tokenization::*};
+use super::*;
 
 #[inline(always)]
 pub const fn punct(s: &str) -> Punct {
@@ -118,8 +116,8 @@ impl FromStr for Punct {
         }
     }
 }
-impl RawSpannable for Punct {
-    type Spanned = SpannedPunct;
+impl WrapSpannable for Punct {
+    type Wrapper = SpannedPunct;
 }
 impl Describe for Punct {
     #[inline(always)]
@@ -133,7 +131,7 @@ impl TypeDescribe for Punct {
         Description::new("a punct")
     }
 }
-impl<'src> TokenTypeValidation<'src> for Punct {
+impl<'src> UnspannedTokenTypeValidation<'src> for Punct {
     
 }
 
@@ -143,7 +141,7 @@ pub struct SpannedPunct {
     span_start: usize,
 }
 impl SpannedPunct {
-    pub const STRS: &'static [&'static str] = <Self as SpannedSpannable>::Inner::STRS;
+    pub const STRS: &'static [&'static str] = <Self as SpannedSpannable>::Unspanned::STRS;
 
     #[inline(always)]
     pub const fn str(&self) -> &'static str {
@@ -162,7 +160,7 @@ impl Spanned for SpannedPunct {
         Span::sized(self.span_start, self.str().len())
     }
 }
-impl RawSpannedSpannable for SpannedPunct {
+impl WrapSpanned for SpannedPunct {
     type Inner = Punct;
     #[inline(always)]
     fn inner(&self) -> &Self::Inner {
@@ -174,15 +172,32 @@ impl RawSpannedSpannable for SpannedPunct {
     }
 }
 impl<'src> FromSrc<'src> for SpannedPunct {
-    fn from_src(src: &'src SrcFile, span: Span) -> Option<Self> {
+    fn from_src(src: &'src SrcFile, span: Span, errs: &mut Vec<Error>) -> Self {
         let s = &src[span];
+        if let Some(position) = Self::STRS.iter().position(|keyword| s == *keyword) {
+            Self {
+                inner: Punct {
+                    id: position as u8,
+                },
+                span_start: span.start()
+            }
+        }
+        else {
+            errs.push(Error::from_messages(span, [
+                errm::expected(Self::type_desc()),
+                errm::is_not(Description::quote(s), Self::type_desc())
+            ]));
 
-        Self::STRS.iter().position(|keyword| s == *keyword).map(|position| Self {
-            inner: Punct {
-                id: position as u8,
-            },
-            span_start: span.start()
-        })
+            Self {
+                inner: Punct { id: 0 },
+                span_start: span.start()
+            }
+        }
+    }
+}
+impl<'src> FromSrcUnchecked<'src> for SpannedPunct {
+    unsafe fn from_src_unchecked(src: &'src SrcFile, span: Span, _errs: &mut Vec<Error>) -> Self {
+        Self::from_src(src, span, _errs)
     }
 }
 impl<'src> ParseTokens<'src> for SpannedPunct {
@@ -208,9 +223,6 @@ impl<'src> ParseTokens<'src> for SpannedPunct {
             Self { inner: Punct { id: 0 }, span_start: src.span().last_byte().start() }
         }   
     }
-}
-impl<'src> TokenTypeValidation<'src> for SpannedPunct {
-    
 }
 impl<'src> SpannedTokenTypeValidation<'src> for SpannedPunct {
 

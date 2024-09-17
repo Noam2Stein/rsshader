@@ -1,6 +1,7 @@
-use std::{fmt::{self, Display, Formatter}, mem};
+use super::*;
 
-use crate::{desc::*, error::*, span::*, tokenization::*};
+mod delimiter;
+pub use delimiter::*;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Group<'src> {
@@ -120,7 +121,7 @@ impl<'src> ParseTokens<'src> for Group<'src> {
         }   
     }
 }
-impl<'src> TokenTypeValidation<'src> for Group<'src> {
+impl<'src> UnspannedTokenTypeValidation<'src> for Group<'src> {
     
 }
 impl<'src> SpannedTokenTypeValidation<'src> for Group<'src> {

@@ -25,8 +25,8 @@ impl<'src> Display for InvalidAny<'src> {
         self.s.fmt(f)
     }
 }
-impl<'src> RawSpannable for InvalidAny<'src> {
-    type Spanned = SpannedInvalidAny<'src>;
+impl<'src> WrapSpannable for InvalidAny<'src> {
+    type Wrapper = SpannedInvalidAny<'src>;
 }
 impl<'src> Describe for InvalidAny<'src> {
     #[inline(always)]
@@ -74,7 +74,7 @@ impl<'src> Spanned for SpannedInvalidAny<'src> {
         Span::sized(self.span_start, self.inner.s.len())
     }
 }
-impl<'src> RawSpannedSpannable for SpannedInvalidAny<'src> {
+impl<'src> WrapSpanned for SpannedInvalidAny<'src> {
     type Inner = InvalidAny<'src>;
     fn inner(&self) -> &Self::Inner {
         &self.inner

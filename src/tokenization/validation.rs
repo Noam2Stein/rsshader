@@ -1,8 +1,8 @@
-use std::{fmt::{Debug, Display}, hash::Hash};
+use fmt::Debug;
 
 use super::*;
 
-pub trait TokenTypeValidation<'src>:
+pub trait UnspannedTokenTypeValidation<'src>:
 Debug +
 Clone +
 Eq +
@@ -10,13 +10,24 @@ Ord +
 Hash +
 Display +
 ParseTokens<'src> +
+FromSrc<'src> +
+FromSrcUnchecked<'src> +
+Spannable +
 {
 
 }
 
 pub trait SpannedTokenTypeValidation<'src>:
-TokenTypeValidation<'src> +
-Spanned +
+Debug +
+Clone +
+Eq +
+Ord +
+Hash +
+Display +
+ParseTokens<'src> +
+FromSrc<'src> +
+FromSrcUnchecked<'src> +
+SpannedSpannable +
 {
 
 }

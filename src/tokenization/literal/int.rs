@@ -1,6 +1,4 @@
-use std::{fmt::{self, Display, Formatter}, str::FromStr};
-
-use crate::{desc::*, error::*, span::*, tokenization::*};
+use super::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct IntLiteral {
@@ -99,8 +97,8 @@ impl FromStr for IntLiteral {
         }
     }
 }
-impl RawSpannable for IntLiteral {
-    type Spanned = SpannedIntLiteral;
+impl WrapSpannable for IntLiteral {
+    type Wrapper = SpannedIntLiteral;
 }
 impl Describe for IntLiteral {
     fn desc(&self) -> Description {
@@ -112,7 +110,7 @@ impl TypeDescribe for IntLiteral {
         Description::new("an int literal")
     }
 }
-impl<'src> TokenTypeValidation<'src> for IntLiteral {
+impl<'src> UnspannedTokenTypeValidation<'src> for IntLiteral {
     
 }
 
@@ -131,7 +129,7 @@ impl Spanned for SpannedIntLiteral {
         self.span
     }
 }
-impl RawSpannedSpannable for SpannedIntLiteral {
+impl WrapSpanned for SpannedIntLiteral {
     type Inner = IntLiteral;
     fn inner(&self) -> &Self::Inner {
         &self.inner
@@ -182,7 +180,7 @@ impl<'src> ParseTokens<'src> for SpannedIntLiteral {
         }   
     }
 }
-impl<'src> TokenTypeValidation<'src> for SpannedIntLiteral {
+impl<'src> UnspannedTokenTypeValidation<'src> for SpannedIntLiteral {
     
 }
 impl<'src> SpannedTokenTypeValidation<'src> for SpannedIntLiteral {

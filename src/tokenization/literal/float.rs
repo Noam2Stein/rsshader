@@ -1,6 +1,4 @@
-use std::{fmt::{self, Display, Formatter}, str::FromStr};
-
-use crate::{desc::*, error::*, span::*, tokenization::*};
+use super::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct FloatLiteral {
@@ -24,7 +22,7 @@ impl FloatLiteral {
             },
         }
     }
-    pub fn from_str_unsuffixed(s: &str) -> Result<Self, String> {
+    pub fn from_str_unsuffixed(s: &str) -> Result<Self, ErrorMessage> {
         let split_str = s.split(".").collect::<Box<[&str]>>();
 
         if s.len() == 0 {
@@ -60,7 +58,7 @@ impl FloatLiteral {
             suffix: None,
         }
     }
-    pub fn from_str_suffixed(s: &str) -> Result<Self, String> {
+    pub fn from_str_suffixed(s: &str) -> Result<Self, ErrorMessage> {
         let literal = Self::from_str(s)?;
         if let Some(_) = literal.suffix {
             Ok(literal)
@@ -98,16 +96,16 @@ impl Display for FloatLiteral {
     }
 }
 impl FromStr for FloatLiteral {
-    type Err = String;
+    type Err = ErrorMessage;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let (value_str, suffix_str) = s.split_at(s.find(|c: char| c.is_alphabetic()).unwrap_or(s.len()));
         let split_value_str = value_str.split(".").collect::<Box<[&str]>>();
 
         if value_str.len() == 0 {
-            Err(format!("an empty str is an invalid float"))
+            Err(errm::expected_found(Self::type_desc(), Description::quote("")))
         }
         else if split_value_str.len() != 2 || split_value_str.iter().any(|str| str.chars().any(|c| !c.is_ascii_digit())) {
-            Err(format!("expected float, found '{value_str}'"))
+            Err(errm::expected_is_not(Self::type_desc(), Description::quote(s)))
         }
         else if let Ok(integral_value) = u128::from_str(split_value_str[0]) {
             if let Ok(fractional_value) = u128::from_str(split_value_str[1]) {
@@ -133,8 +131,8 @@ impl FromStr for FloatLiteral {
         }
     }
 }
-impl RawSpannable for FloatLiteral {
-    type Spanned = SpannedFloatLiteral;
+impl WrapSpannable for FloatLiteral {
+    type Wrapper = SpannedFloatLiteral;
 }
 impl Describe for FloatLiteral {
     fn desc(&self) -> Description {
@@ -146,7 +144,7 @@ impl TypeDescribe for FloatLiteral {
         Description::new("a float literal")
     }
 }
-impl<'src> TokenTypeValidation<'src> for FloatLiteral {
+impl<'src> UnspannedTokenTypeValidation<'src> for FloatLiteral {
     
 }
 
@@ -165,7 +163,7 @@ impl Spanned for SpannedFloatLiteral {
         self.span
     }    
 }
-impl RawSpannedSpannable for SpannedFloatLiteral {
+impl WrapSpanned for SpannedFloatLiteral {
     type Inner = FloatLiteral;
     #[inline(always)]
     fn inner(&self) -> &Self::Inner {
@@ -174,6 +172,34 @@ impl RawSpannedSpannable for SpannedFloatLiteral {
     #[inline(always)]
     fn into_inner(self) -> Self::Inner {
         self.inner
+    }
+}
+impl<'src> FromSrc<'src> for SpannedFloatLiteral {
+    fn from_src(src: &'src SrcFile, span: Span, errs: &mut Vec<Error>) -> Self {
+        match FloatLiteral::from_str(&src[span]) {
+            Ok(inner) => Self {
+                inner,
+                span,
+            },
+            Err(err) => {
+                errs.push(Error::from_messages(span, [
+                    err
+                ]));
+
+                Self {
+                    inner: FloatLiteral::default(),
+                    span,
+                }
+            }
+        }
+    }
+}
+impl<'src> FromSrcUnchecked<'src> for SpannedFloatLiteral {
+    unsafe fn from_src_unchecked(src: &'src SrcFile, span: Span, _errs: &mut Vec<Error>) -> Self {
+        Self {
+            inner: FloatLiteral::from_str_unchecked(&src[span]),
+            span,
+        }
     }
 }
 impl<'src> ParseTokens<'src> for SpannedFloatLiteral {
@@ -218,9 +244,6 @@ impl<'src> ParseTokens<'src> for SpannedFloatLiteral {
         }
     }
 }
-impl<'src> TokenTypeValidation<'src> for SpannedFloatLiteral {
-    
-}
 impl<'src> SpannedTokenTypeValidation<'src> for SpannedFloatLiteral {
 
 }
@@ -256,7 +279,7 @@ impl Display for FloatSuffix {
     }
 }
 impl FromStr for FloatSuffix {
-    type Err = String;
+    type Err = ErrorMessage;
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         match FLOAT_SUFFIXES.into_iter().position(|keyword| s == keyword) {
             Some(position) => Ok(
@@ -264,7 +287,7 @@ impl FromStr for FloatSuffix {
                     id: position as u8,
                 }
             ),
-            None => Err(format!("'{s}' is not {}", Self::type_desc())),
+            None => Err(errm::is_not(Description::quote(s), Self::type_desc())),
         }
     }
 }

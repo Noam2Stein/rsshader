@@ -1,6 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::source::span::Span;
+use crate::source::span::{Span, Spanned};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Error {

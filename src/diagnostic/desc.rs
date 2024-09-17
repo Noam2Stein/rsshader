@@ -3,33 +3,33 @@ use std::{fmt::Display, mem};
 #[repr(transparent)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Description {
-    pub str: String,
+    pub s: String,
 }
 impl Description {
-    pub fn new(str: impl Into<String>) -> Self {
+    pub fn new(s: impl Into<String>) -> Self {
         Self {
-            str: str.into()
+            s: s.into()
         }
     }
-    pub fn quote(str: &str) -> Self {
+    pub fn quote(s: &str) -> Self {
         Self {
-            str: format!("'{str}'")
+            s: format!("'{s}'")
         }
     }
     pub fn either(iter: impl IntoIterator<Item = Self>) -> Self {
-        let descs = iter.into_iter().map(|desc| desc.str).collect::<Box<[String]>>();
+        let descs = iter.into_iter().map(|desc| desc.s).collect::<Box<[String]>>();
         let (descs_but_last, descs_last) = descs.split_at(descs.len() - 1);
     
         Self {
-            str: format!("either {}, or {}", descs_but_last.join(", "), descs_last[0])
+            s: format!("either {}, or {}", descs_but_last.join(", "), descs_last[0])
         }
     }
     pub fn list(iter: impl IntoIterator<Item = Self>) -> Self {
-        let descs = iter.into_iter().map(|desc| desc.str).collect::<Box<[String]>>();
+        let descs = iter.into_iter().map(|desc| desc.s).collect::<Box<[String]>>();
         let (descs_but_last, descs_last) = descs.split_at(descs.len() - 1);
     
         Self {
-            str: format!("{}, and {}", descs_but_last.join(", "), descs_last[0])
+            s: format!("{}, and {}", descs_but_last.join(", "), descs_last[0])
         }
     }
 
@@ -39,7 +39,7 @@ impl Description {
 }
 impl Display for Description {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.str.fmt(f)
+        self.s.fmt(f)
     }
 }
 pub trait DescriptionArrayExt {

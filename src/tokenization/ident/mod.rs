@@ -1,24 +1,26 @@
-use std::fmt::{self, Display, Formatter};
-
-use crate::{desc::*, error::*, span::*, src::*, tokenization::*};
+use super::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Ident<'src> {
     s: &'src str,
 }
 impl<'src> Ident<'src> {
-    pub fn from_str(s: &'src str) -> Result<Self, String> {
+    pub fn from_str(s: &'src str) -> Result<Self, ErrorMessage> {
         if Keyword::STRS.contains(&s) {
-            Err(format!("'{s}' is a keyword and thus is an invalid ident"))
+            Err(errm::is_and_thus_cant_be_used_as(
+                Description::quote(s),
+                Keyword::type_desc(),
+                Self::type_desc()
+            ))
         }
         else if s.len() == 0 {
-            Err(format!("'' is an invalid ident"))
+            Err(errm::expected_found(Self::type_desc(), Description::quote(s)))
         }
         else if s.chars().any(|c| !c.is_ascii_alphabetic() && !c.is_ascii_digit() && !['_'].contains(&c)) {
-            Err(format!("'{s}' is an invalid ident because it contains invalid chars"))
+            Err(errm::is_not_because(Description::quote(s), Self::type_desc(), "it contains invalid chars"))
         }
         else if s.chars().next().unwrap().is_ascii_digit() {
-            Err(format!("'{s}' is an invalid ident because it starts with a digit"))
+            Err(errm::is_not_because(Description::quote(s), Self::type_desc(), "it starts with a digit"))
         }
         else {
             Ok(
@@ -46,8 +48,8 @@ impl<'src> Display for Ident<'src> {
         self.s.fmt(f)
     }
 }
-impl<'src> RawSpannable for Ident<'src> {
-    type Spanned = SpannedIdent<'src>;
+impl<'src> WrapSpannable for Ident<'src> {
+    type Wrapper = SpannedIdent<'src>;
 }
 impl<'src> Describe for Ident<'src> {
     fn desc(&self) -> Description {
@@ -59,7 +61,7 @@ impl<'src> TypeDescribe for Ident<'src> {
         Description::new("an ident")
     }
 }
-impl<'src> TokenTypeValidation<'src> for Ident<'src> {
+impl<'src> UnspannedTokenTypeValidation<'src> for Ident<'src> {
 
 }
 
@@ -85,7 +87,7 @@ impl<'src> Spanned for SpannedIdent<'src> {
         Span::sized(self.span_start, self.inner.s.len())
     }
 }
-impl<'src> RawSpannedSpannable for SpannedIdent<'src> {
+impl<'src> WrapSpanned for SpannedIdent<'src> {
     type Inner = Ident<'src>;
     fn inner(&self) -> &Self::Inner {
         &self.inner
@@ -95,11 +97,31 @@ impl<'src> RawSpannedSpannable for SpannedIdent<'src> {
     }
 }
 impl<'src> FromSrc<'src> for SpannedIdent<'src> {
-    fn from_src(src: &'src SrcFile, span: Span) -> Option<Self> {
-        Ident::from_str(&src[span]).ok().map(|inner| Self {
-            inner,
+    fn from_src(src: &'src SrcFile, span: Span, errs: &mut Vec<Error>) -> Self {
+        match Ident::from_str(&src[span]) {
+            Ok(inner) => Self {
+                inner,
+                span_start: span.start()
+            },
+            Err(err) => {
+                errs.push(Error::from_messages(span, [
+                    err
+                ]));
+
+                Self {
+                    inner: unsafe { Ident::from_str_unchecked("_") },
+                    span_start: span.start()
+                }
+            }
+        }
+    }
+}
+impl<'src> FromSrcUnchecked<'src> for SpannedIdent<'src> {
+    unsafe fn from_src_unchecked(src: &'src SrcFile, span: Span, _errs: &mut Vec<Error>) -> Self {
+        Self {
+            inner: Ident::from_str_unchecked(&src[span]),
             span_start: span.start(),
-        })
+        }
     }
 }
 impl<'src> ParseTokens<'src> for SpannedIdent<'src> {
@@ -131,9 +153,6 @@ impl<'src> ParseTokens<'src> for SpannedIdent<'src> {
             }
         }   
     }
-}
-impl<'src> TokenTypeValidation<'src> for SpannedIdent<'src> {
-    
 }
 impl<'src> SpannedTokenTypeValidation<'src> for SpannedIdent<'src> {
 
