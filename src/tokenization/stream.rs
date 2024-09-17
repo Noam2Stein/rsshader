@@ -1,22 +1,16 @@
 use std::fmt::{self, Display, Formatter};
 
 use crate::{desc::*, error::*, span::*};
-use super::tt::*;
+use super::{tt::*, SrcFile};
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct TokenStream<'src> {
     pub tokens: Vec<TokenTree<'src>>,
 }
 impl<'src> TokenStream<'src> {
-    pub fn new(tokens: Vec<TokenTree<'src>>) -> Self {
+    pub const fn new(tokens: Vec<TokenTree<'src>>) -> Self {
         Self {
             tokens,
-        }
-    }
-    pub fn iter<'a>(&'a self) -> TokenStreamIter<'a, 'src> {
-        TokenStreamIter {
-            stream: self,
-            iter: self.tokens.iter()
         }
     }
 }
@@ -50,28 +44,5 @@ impl<'src> TypeDescribe for TokenStream<'src> {
 impl<'src> From<Vec<TokenTree<'src>>> for TokenStream<'src> {
     fn from(value: Vec<TokenTree<'src>>) -> Self {
         Self::new(value)
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct TokenStreamIter<'stream, 'src> {
-    stream: &'stream TokenStream<'src>,
-    iter: std::slice::Iter<'stream, TokenTree<'src>>,
-}
-pub trait FromTokens<'stream, 'src>: Sized {
-    fn from_tokens(tokens: &mut TokenStreamIter<'stream, 'src>, errs: &mut Vec<Error>) -> Self;
-}
-impl<'stream, 'src> TokenStreamIter<'stream, 'src> {
-    pub fn stream(&self) -> &'stream TokenStream<'src> {
-        self.stream
-    }
-    pub fn read<T: FromTokens<'stream, 'src>>(&mut self, errs: &mut Vec<Error>) -> T {
-        T::from_tokens(self, errs)
-    }
-}
-impl<'stream, 'src> Iterator for TokenStreamIter<'stream, 'src> {
-    type Item = &'stream TokenTree<'src>;
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next()
     }
 }

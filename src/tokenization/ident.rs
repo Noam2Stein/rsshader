@@ -59,6 +59,9 @@ impl<'src> TypeDescribe for Ident<'src> {
         Description::new("an ident")
     }
 }
+impl<'src> TokenTypeValidation<'src> for Ident<'src> {
+
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SpannedIdent<'src> {
@@ -75,6 +78,11 @@ impl<'src> Display for SpannedIdent<'src> {
     #[inline(always)]
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         self.inner.fmt(f)
+    }
+}
+impl<'src> Spanned for SpannedIdent<'src> {
+    fn span(&self) -> Span {
+        Span::sized(self.span_start, self.inner.s.len())
     }
 }
 impl<'src> RawSpannedSpannable for SpannedIdent<'src> {
@@ -94,11 +102,11 @@ impl<'src> FromSrc<'src> for SpannedIdent<'src> {
         })
     }
 }
-impl<'stream, 'src> FromTokens<'stream, 'src> for SpannedIdent<'src> {
-    fn from_tokens(tokens: &mut TokenStreamIter<'stream, 'src>, errs: &mut Vec<Error>) -> Self {
+impl<'src> ParseTokens<'src> for SpannedIdent<'src> {
+    fn parse_tokens(mut tokens: impl Iterator<Item = TokenTree<'src>>, src: &'src SrcFile, errs: &mut Vec<Error>) -> Self {
         if let Some(token) = tokens.next() {
             if let TokenTree::Ident(token) = token {
-                *token
+                token
             }
             else {
                 errs.push(Error::from_messages(token.span(), [
@@ -112,7 +120,7 @@ impl<'stream, 'src> FromTokens<'stream, 'src> for SpannedIdent<'src> {
             }
         }
         else {
-            errs.push(Error::from_messages(tokens.stream().span().last_byte(), [
+            errs.push(Error::from_messages(src.span().last_byte(), [
                 errm::unexpected_end_of_file(),
                 errm::expected(Self::type_desc())
             ]));
@@ -121,6 +129,12 @@ impl<'stream, 'src> FromTokens<'stream, 'src> for SpannedIdent<'src> {
                 inner: Ident { s: "" },
                 span_start: 0,
             }
-        }
+        }   
     }
+}
+impl<'src> TokenTypeValidation<'src> for SpannedIdent<'src> {
+    
+}
+impl<'src> SpannedTokenTypeValidation<'src> for SpannedIdent<'src> {
+
 }

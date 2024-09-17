@@ -112,8 +112,11 @@ impl TypeDescribe for IntLiteral {
         Description::new("an int literal")
     }
 }
+impl<'src> TokenTypeValidation<'src> for IntLiteral {
+    
+}
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SpannedIntLiteral {
     inner: IntLiteral,
     span: Span,
@@ -137,12 +140,12 @@ impl RawSpannedSpannable for SpannedIntLiteral {
         self.inner
     }
 }
-impl<'stream, 'src> FromTokens<'stream, 'src> for SpannedIntLiteral {
-    fn from_tokens(tokens: &mut TokenStreamIter<'stream, 'src>, errs: &mut Vec<Error>) -> Self {
+impl<'src> ParseTokens<'src> for SpannedIntLiteral {
+    fn parse_tokens(mut tokens: impl Iterator<Item = TokenTree<'src>>, src: &'src SrcFile, errs: &mut Vec<Error>) -> Self {
         if let Some(token) = tokens.next() {
             if let TokenTree::Literal(token) = token {
                 if let SpannedLiteral::Int(token) = token {
-                    *token
+                    token
                 }
                 else {
                     errs.push(Error::from_messages(token.span(), [
@@ -150,7 +153,7 @@ impl<'stream, 'src> FromTokens<'stream, 'src> for SpannedIntLiteral {
                     ]));
 
                     Self {
-                        inner: IntLiteral { value: 0, suffix: None },
+                        inner: IntLiteral::default(),
                         span: token.span(),
                     }
                 }
@@ -159,17 +162,31 @@ impl<'stream, 'src> FromTokens<'stream, 'src> for SpannedIntLiteral {
                 errs.push(Error::from_messages(token.span(), [
                     errm::expected_found(Self::type_desc(), token.token_type_desc())
                 ]));
+
+                Self {
+                    inner: IntLiteral::default(),
+                    span: token.span(),
+                }
             }
         }
         else {
-            errs.push(Error::from_messages(tokens.stream().span().last_byte(), [
+            errs.push(Error::from_messages(src.span().last_byte(), [
                 errm::unexpected_end_of_file(),
                 errm::expected(Self::type_desc())
             ]));
 
-            
-        }
+            Self {
+                inner: IntLiteral::default(),
+                span: Span::EMPTY,
+            }
+        }   
     }
+}
+impl<'src> TokenTypeValidation<'src> for SpannedIntLiteral {
+    
+}
+impl<'src> SpannedTokenTypeValidation<'src> for SpannedIntLiteral {
+
 }
 
 pub const INT_SUFFIXES: [&str; 10] = [
@@ -209,6 +226,11 @@ impl IntSuffix {
         INT_SUFFIXES[self.id as usize]
     }
 }
+impl Display for IntSuffix {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        self.str().fmt(f)
+    }
+}
 impl FromStr for IntSuffix {
     type Err = String;
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
@@ -220,11 +242,6 @@ impl FromStr for IntSuffix {
             ),
             None => Err(format!("'{s}' is not {}", Self::type_desc())),
         }
-    }
-}
-impl Display for IntSuffix {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        self.str().fmt(f)
     }
 }
 impl Describe for IntSuffix {

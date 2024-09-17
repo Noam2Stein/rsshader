@@ -1,7 +1,6 @@
 use logos::{Lexer, Logos};
 
-use crate::{desc::*, span::*};
-
+use super::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct RawToken {
@@ -34,6 +33,9 @@ impl<'src> RawTokenIter<'src> {
         Self {
             lexer: LogosToken::lexer(src)
         }
+    }
+    pub fn src(&self) -> &'src SrcFile {
+        self.lexer.source().as_ref()
     }
 }
 impl<'src> Iterator for RawTokenIter<'src> {

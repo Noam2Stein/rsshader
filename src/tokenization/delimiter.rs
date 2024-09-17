@@ -5,6 +5,7 @@ pub enum Delimiter {
     Brace,
     Bracket,
     Parenthesis,
+    InvalidAny,
 }
 impl Delimiter {
     pub const fn from_open_char(c: char) -> Option<Self> {
@@ -45,6 +46,7 @@ impl Delimiter {
             Self::Brace => "{",
             Self::Bracket => "[",
             Self::Parenthesis => "(",
+            Self::InvalidAny => "?",
         }
     }
     pub const fn close_str(self) -> &'static str {
@@ -52,6 +54,7 @@ impl Delimiter {
             Self::Brace => "}",
             Self::Bracket => "]",
             Self::Parenthesis => ")",
+            Self::InvalidAny => "?",
         }
     }
     pub const fn str(self) -> &'static str {
@@ -59,6 +62,7 @@ impl Delimiter {
             Self::Brace => "{}",
             Self::Bracket => "[]",
             Self::Parenthesis => "()",
+            Self::InvalidAny => "??",
         }
     }
     
@@ -76,6 +80,7 @@ impl Describe for Delimiter {
                 Self::Brace => "braces",
                 Self::Bracket => "brackets",
                 Self::Parenthesis => "parenthesis",
+                Self::InvalidAny => "invalid any",
             }
         )
     }

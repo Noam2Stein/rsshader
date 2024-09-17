@@ -1,13 +1,13 @@
 use super::*;
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Hash, Ord)]
 pub enum TokenTree<'src> {
     Keyword(SpannedKeyword),
     Ident(SpannedIdent<'src>),
     Punct(SpannedPunct),
-    Literal(SpannedLiteral),
+    Literal(SpannedLiteral<'src>),
     Group(Group<'src>),
-    InvalidAny(InvalidAny<'src>),
+    InvalidAny(SpannedInvalidAny<'src>),
 }
 impl<'src> TokenTree<'src> {
     pub fn token_type_desc(&self) -> Description {
@@ -62,18 +62,24 @@ impl<'src> TypeDescribe for TokenTree<'src> {
         Description::new("a token tree")
     }
 }
-impl<'stream, 'src> FromTokens<'stream, 'src> for TokenTree<'src> {
-    fn from_tokens(tokens: &mut TokenStreamIter<'_, 'src>, errs: &mut Vec<Error>) -> Self {
+impl<'src> ParseTokens<'src> for TokenTree<'src> {
+    fn parse_tokens(mut tokens: impl Iterator<Item = TokenTree<'src>>, src: &'src SrcFile, errs: &mut Vec<Error>) -> Self {
         if let Some(token) = tokens.next() {
             token.clone()
         }
         else {
-            errs.push(Error::from_messages(tokens.stream().span().last_byte(), [
+            errs.push(Error::from_messages(src.span().last_byte(), [
                 errm::unexpected_end_of_file(),
                 errm::expected(Self::type_desc())
             ]));
 
-            Self::InvalidAny(InvalidAny::empty())
-        }
+            Self::InvalidAny(SpannedInvalidAny::empty())
+        }   
     }
+}
+impl<'src> TokenTypeValidation<'src> for TokenTree<'src> {
+    
+}
+impl<'src> SpannedTokenTypeValidation<'src> for TokenTree<'src> {
+
 }

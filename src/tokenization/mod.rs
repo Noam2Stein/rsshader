@@ -12,8 +12,10 @@ pub mod literal;
 pub mod group;
 pub mod delimiter;
 pub mod tt;
+pub mod parse;
 pub mod stream;
 pub mod invalid;
+pub mod validation;
 pub use keyword::*;
 pub use ident::*;
 pub use punct::*;
@@ -23,8 +25,10 @@ pub use delimiter::*;
 pub use tt::*;
 pub use stream::*;
 pub use invalid::*;
+pub use parse::*;
+pub use validation::*;
 
-pub fn tokenize<'src>(src: &'src str, errs: &mut Vec<Error>) -> TokenStream<'src> {
+pub fn tokenize<'src>(src: &'src SrcFile, errs: &mut Vec<Error>) -> impl Iterator<Item = TokenTree<'src>> {
     let mut tokens = RawTokenIter::new(src);
 
     let mut output = Vec::new();
@@ -58,13 +62,55 @@ pub fn tokenize<'src>(src: &'src str, errs: &mut Vec<Error>) -> TokenStream<'src
     output.into()
 }
 
+pub struct TokenIter<'src> {
+    raw_tokens: RawTokenIter<'src>,
+}
+impl<'src> TokenIter<'src> {
+    pub fn new(src: &'src SrcFile) -> Self {
+        Self {
+            raw_tokens: RawTokenIter::new(&src.s)
+        }
+    }
+    pub fn next(&mut self, errs: &mut Vec<Error>) -> Option<TokenTree<'src>> {
+        if let Some(raw_token) = self.raw_tokens.next() {
+            match raw_token.ty {
+                RawTokenType::GroupOpen => {
+                    let output = read_group(raw_token, &mut self.raw_tokens, errs);
+                    
+                    if let Some(escaped_group_close) = escaped_group_close {
+                        read_close(escaped_group_close, errs)
+                    }
+
+                    Some(
+                        TokenTree::Group(group)
+                    )
+                }
+                RawTokenType::GroupClose => {
+                    let close_delimiter = Delimiter::from_close_str(self.raw_tokens.src()[raw_token.span]).unwrap();
+                    
+                    errs.push(Error::from_messages(token.span, [
+                        ErrorMessage::Problem(format!("closing delimiter without a group to close")),
+                        errm::unmatched_delimiter(close_delimiter.open_desc()),
+                        errm::expected(close_delimiter.close_desc()),
+                    ]));
+
+                    None
+                }
+                _ => {
+                    read_token(token, &mut output, errs)
+                }
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 struct GroupEdge {
     delimiter: Delimiter,
     span: Span,
 }
-struct ReadGroupOutput {
-    group: Group,
+struct ReadGroupOutput<'src> {
+    group: Group<'src>,
     escaped_group_close: Option<GroupEdge>,
 }
 
@@ -77,7 +123,7 @@ fn read_close(close: GroupEdge, errs: &mut Vec<Error>) {
     ]));
 }
 
-fn read_group<'a>(open: RawToken, tokens: &mut RawTokenIter, errs: &mut Vec<Error>) -> ReadGroupOutput {
+fn read_group<'src>(open: RawToken, tokens: &mut RawTokenIter, errs: &mut Vec<Error>) -> ReadGroupOutput<'src> {
     let open = GroupEdge {
         delimiter: Delimiter::from_open_str(open.str).unwrap(),
         span: open.span,
@@ -134,7 +180,7 @@ fn read_group<'a>(open: RawToken, tokens: &mut RawTokenIter, errs: &mut Vec<Erro
 }
 
 #[inline(always)]
-fn read_group_close(open: GroupEdge, close: GroupEdge, stream: TokenStream, errs: &mut Vec<Error>) -> ReadGroupOutput {
+fn read_group_close<'src>(open: GroupEdge, close: GroupEdge, stream: TokenStream, errs: &mut Vec<Error>) -> ReadGroupOutput<'src> {
     if close.delimiter == open.delimiter {
         ReadGroupOutput {
             group: Group {

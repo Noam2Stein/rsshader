@@ -133,6 +133,9 @@ impl TypeDescribe for Punct {
         Description::new("a punct")
     }
 }
+impl<'src> TokenTypeValidation<'src> for Punct {
+    
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SpannedPunct {
@@ -182,11 +185,11 @@ impl<'src> FromSrc<'src> for SpannedPunct {
         })
     }
 }
-impl<'stream, 'src> FromTokens<'stream, 'src> for SpannedPunct {
-    fn from_tokens(tokens: &mut TokenStreamIter<'stream, 'src>, errs: &mut Vec<Error>) -> Self {
+impl<'src> ParseTokens<'src> for SpannedPunct {
+    fn parse_tokens(mut tokens: impl Iterator<Item = TokenTree<'src>>, src: &'src SrcFile, errs: &mut Vec<Error>) -> Self {
         if let Some(token) = tokens.next() {
             if let TokenTree::Punct(token) = token {
-                *token
+                token
             }
             else {
                 errs.push(Error::from_messages(token.span(), [
@@ -197,12 +200,18 @@ impl<'stream, 'src> FromTokens<'stream, 'src> for SpannedPunct {
             }
         }
         else {
-            errs.push(Error::from_messages(tokens.stream().span().last_byte(), [
+            errs.push(Error::from_messages(src.span().last_byte(), [
                 errm::unexpected_end_of_file(),
                 errm::expected(Self::type_desc())
             ]));
 
-            Self { inner: Punct { id: 0 }, span_start: tokens.stream().span().start() }
-        }
+            Self { inner: Punct { id: 0 }, span_start: src.span().last_byte().start() }
+        }   
     }
+}
+impl<'src> TokenTypeValidation<'src> for SpannedPunct {
+    
+}
+impl<'src> SpannedTokenTypeValidation<'src> for SpannedPunct {
+
 }

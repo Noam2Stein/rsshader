@@ -1,6 +1,6 @@
 use std::{fmt::{self, Display, Formatter}, str::FromStr};
 
-use crate::{desc::*, error::*, span::*, src::*, tokenization::*};
+use super::*;
 
 #[inline(always)]
 pub const fn keyword(s: &str) -> Keyword {
@@ -109,6 +109,9 @@ impl TypeDescribe for Keyword {
         Description::new("a keyword")
     }
 }
+impl<'src> TokenTypeValidation<'src> for Keyword {
+    
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SpannedKeyword {
@@ -158,11 +161,11 @@ impl<'src> FromSrc<'src> for SpannedKeyword {
         })
     }
 }
-impl<'stream, 'src> FromTokens<'stream, 'src> for SpannedKeyword {
-    fn from_tokens(tokens: &mut TokenStreamIter<'stream, 'src>, errs: &mut Vec<Error>) -> Self {
+impl<'src> ParseTokens<'src> for SpannedKeyword {
+    fn parse_tokens(mut tokens: impl Iterator<Item = TokenTree<'src>>, src: &'src SrcFile, errs: &mut Vec<Error>) -> Self {
         if let Some(token) = tokens.next() {
             if let TokenTree::Keyword(token) = token {
-                *token
+                token
             }
             else {
                 errs.push(Error::from_messages(token.span(), [
@@ -173,12 +176,18 @@ impl<'stream, 'src> FromTokens<'stream, 'src> for SpannedKeyword {
             }
         }
         else {
-            errs.push(Error::from_messages(tokens.stream().span().last_byte(), [
+            errs.push(Error::from_messages(src.span().last_byte(), [
                 errm::unexpected_end_of_file(),
                 errm::expected(Self::type_desc())
             ]));
 
-            Self { inner: Keyword { id: 0 }, span_start: tokens.stream().span().start() }
-        }
+            Self { inner: Keyword { id: 0 }, span_start: src.span().last_byte().start() }
+        }   
     }
+}
+impl<'src> TokenTypeValidation<'src> for SpannedKeyword {
+    
+}
+impl<'src> SpannedTokenTypeValidation<'src> for SpannedKeyword {
+
 }

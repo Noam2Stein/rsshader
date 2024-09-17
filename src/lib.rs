@@ -1,6 +1,4 @@
-pub mod span;
-pub mod desc;
-pub mod error;
-pub mod src;
+pub mod diagnostic;
+pub mod source;
 pub mod tokenization;
 //pub mod syntax;
