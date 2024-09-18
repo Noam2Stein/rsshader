@@ -2,6 +2,13 @@ use logos::{Lexer, Logos};
 
 use super::*;
 
+pub trait FromRawToken<'src>: Sized {
+    unsafe fn from_raw_token(src: &'src SrcFile, raw_token: RawToken, errs: &mut Vec<Error>) -> Self;
+}
+pub trait TryFromRawToken<'src>: Sized {
+    unsafe fn try_from_raw_token(src: &'src SrcFile, raw_token: RawToken, errs: &mut Vec<Error>) -> Option<Self>;
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct RawToken {
     pub span: Span,

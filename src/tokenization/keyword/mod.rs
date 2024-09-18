@@ -107,7 +107,7 @@ impl TypeDescribe for Keyword {
         Description::new("a keyword")
     }
 }
-impl<'src> UnspannedTokenTypeValidation<'src> for Keyword {
+impl<'src> ValidatedTokenType<'src> for Keyword {
     
 }
 
@@ -172,8 +172,28 @@ impl<'src> FromSrc<'src> for SpannedKeyword {
     }
 }
 impl<'src> FromSrcUnchecked<'src> for SpannedKeyword {
+    #[inline(always)]
     unsafe fn from_src_unchecked(src: &'src SrcFile, span: Span, errs: &mut Vec<Error>) -> Self {
         Self::from_src(src, span, errs)
+    }
+}
+impl<'src> FromRawToken<'src> for SpannedKeyword {
+    #[inline(always)]
+    unsafe fn from_raw_token(src: &'src SrcFile, raw_token: RawToken, errs: &mut Vec<Error>) -> Self {
+        Self::from_src_unchecked(src, raw_token.span, errs)
+    }
+}
+impl<'src> TryFromRawToken<'src> for SpannedKeyword {
+    unsafe fn try_from_raw_token(src: &'src SrcFile, raw_token: RawToken, _errs: &mut Vec<Error>) -> Option<Self> {
+        let s = &src[raw_token.span];
+        Self::STRS.iter().position(|keyword| s == *keyword).map(|position|
+            Self {
+                inner: Keyword {
+                    id: position as u8,
+                },
+                span_start: raw_token.span.start()
+            }
+        )
     }
 }
 impl<'src> ParseTokens<'src> for SpannedKeyword {
@@ -200,6 +220,6 @@ impl<'src> ParseTokens<'src> for SpannedKeyword {
         }   
     }
 }
-impl<'src> SpannedTokenTypeValidation<'src> for SpannedKeyword {
+impl<'src> ValidatedSpannedTokenType<'src> for SpannedKeyword {
 
 }

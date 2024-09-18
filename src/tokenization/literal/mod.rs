@@ -87,7 +87,7 @@ impl<'src> ParseTokens<'src> for Literal<'src> {
         }
     }
 }
-impl<'src> UnspannedTokenTypeValidation<'src> for Literal<'src> {
+impl<'src> ValidatedTokenType<'src> for Literal<'src> {
     
 }
 
@@ -167,9 +167,9 @@ impl<'src> ParseTokens<'src> for SpannedLiteral<'src> {
         }   
     }
 }
-impl<'src> UnspannedTokenTypeValidation<'src> for SpannedLiteral<'src> {
+impl<'src> ValidatedTokenType<'src> for SpannedLiteral<'src> {
     
 }
-impl<'src> SpannedTokenTypeValidation<'src> for SpannedLiteral<'src> {
+impl<'src> ValidatedSpannedTokenType<'src> for SpannedLiteral<'src> {
 
 }

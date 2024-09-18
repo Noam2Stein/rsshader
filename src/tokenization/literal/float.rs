@@ -123,11 +123,11 @@ impl FromStr for FloatLiteral {
                 )
             }
             else {
-                Err(format!("'{}' is too large for the literal capacity: {}", split_value_str[1], u128::MAX))
+                Err(ErrorMessage::Problem(format!("'{}' is too large for the literal capacity: {}", split_value_str[1], u128::MAX)))
             }
         }
         else {
-            Err(format!("'{}' is too large for the literal capacity: {}", split_value_str[0], u128::MAX))
+            Err(ErrorMessage::Problem(format!("'{}' is too large for the literal capacity: {}", split_value_str[0], u128::MAX)))
         }
     }
 }
@@ -144,7 +144,7 @@ impl TypeDescribe for FloatLiteral {
         Description::new("a float literal")
     }
 }
-impl<'src> UnspannedTokenTypeValidation<'src> for FloatLiteral {
+impl<'src> ValidatedTokenType<'src> for FloatLiteral {
     
 }
 
@@ -244,7 +244,7 @@ impl<'src> ParseTokens<'src> for SpannedFloatLiteral {
         }
     }
 }
-impl<'src> SpannedTokenTypeValidation<'src> for SpannedFloatLiteral {
+impl<'src> ValidatedSpannedTokenType<'src> for SpannedFloatLiteral {
 
 }
 

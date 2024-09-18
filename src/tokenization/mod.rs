@@ -3,8 +3,10 @@ use std::{fmt::{self, Display, Formatter}, hash::Hash, mem, str::FromStr};
 use crate::{diagnostic::*, source::*};
 
 mod raw;
+mod resolver;
 mod validation;
 use raw::*;
+use resolver::*;
 use validation::*;
 
 pub mod validtoken;

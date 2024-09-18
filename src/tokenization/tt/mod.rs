@@ -80,9 +80,9 @@ impl<'src> ParseTokens<'src> for TokenTree<'src> {
         }   
     }
 }
-impl<'src> UnspannedTokenTypeValidation<'src> for TokenTree<'src> {
+impl<'src> ValidatedTokenType<'src> for TokenTree<'src> {
     
 }
-impl<'src> SpannedTokenTypeValidation<'src> for TokenTree<'src> {
+impl<'src> ValidatedSpannedTokenType<'src> for TokenTree<'src> {
 
 }

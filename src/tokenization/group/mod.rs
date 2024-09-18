@@ -121,10 +121,7 @@ impl<'src> ParseTokens<'src> for Group<'src> {
         }   
     }
 }
-impl<'src> UnspannedTokenTypeValidation<'src> for Group<'src> {
-    
-}
-impl<'src> SpannedTokenTypeValidation<'src> for Group<'src> {
+impl<'src> ValidatedSpannedTokenType<'src> for Group<'src> {
 
 }
 

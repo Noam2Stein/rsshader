@@ -1,8 +1,16 @@
 use super::*;
 
 pub trait FromSrc<'src>: Sized {
-    fn from_src(src: &'src SrcFile, span: Span, errs: &mut Vec<Error>) -> Self;
+    type Err: Sized;
+    fn from_src(s: &'src str) -> Result<Self, Self::Err>;
 }
-pub trait FromSrcUnchecked<'src>: Sized {
-    unsafe fn from_src_unchecked(src: &'src SrcFile, span: Span, _errs: &mut Vec<Error>) -> Self;
+pub trait FromSrcSpan<'src>: Sized {
+    type Err: Sized;
+    fn from_src_span(src: &'src SrcFile, span: Span) -> Result<Self, Self::Err>;
+}
+impl<'src, T: FromSrc<'src>> FromSrcSpan<'src> for T {
+    type Err = T::Err;
+    fn from_src_span(src: &'src SrcFile, span: Span) -> Result<Self, Self::Err> {
+        
+    }
 }

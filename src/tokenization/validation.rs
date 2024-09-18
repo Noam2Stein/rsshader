@@ -2,22 +2,21 @@ use fmt::Debug;
 
 use super::*;
 
-pub trait UnspannedTokenTypeValidation<'src>:
+pub trait ValidatedTokenType<'src>:
 Debug +
 Clone +
 Eq +
 Ord +
 Hash +
 Display +
-ParseTokens<'src> +
 FromSrc<'src> +
-FromSrcUnchecked<'src> +
+ParseTokens<'src> +
 Spannable +
 {
 
 }
 
-pub trait SpannedTokenTypeValidation<'src>:
+pub trait ValidatedSpannedTokenType<'src>:
 Debug +
 Clone +
 Eq +
@@ -25,9 +24,7 @@ Ord +
 Hash +
 Display +
 ParseTokens<'src> +
-FromSrc<'src> +
-FromSrcUnchecked<'src> +
-SpannedSpannable +
+SpannedSpannable<Unspanned: ValidatedTokenType<'src, Spanned = Self>> +
 {
 
 }

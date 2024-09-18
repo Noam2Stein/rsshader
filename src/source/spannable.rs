@@ -35,18 +35,6 @@ impl<'src, T: WrapSpannable<Wrapper: ParseTokens<'src>>> ParseTokens<'src> for T
         T::Wrapper::parse_tokens(tokens, src, errs).into_unspanned()
     }
 }
-impl<'src, T: WrapSpannable<Wrapper: FromSrc<'src>>> FromSrc<'src> for T {
-    #[inline(always)]
-    fn from_src(src: &'src SrcFile, span: Span, errs: &mut Vec<Error>) -> Self {
-        T::Wrapper::from_src(src, span, errs).into_unspanned()
-    }
-}
-impl<'src, T: WrapSpannable<Wrapper: FromSrcUnchecked<'src>>> FromSrcUnchecked<'src> for T {
-    #[inline(always)]
-    unsafe fn from_src_unchecked(src: &'src SrcFile, span: Span, errs: &mut Vec<Error>) -> Self {
-        T::Wrapper::from_src_unchecked(src, span, errs).into_unspanned()
-    }
-}
 
 impl<T: WrapSpanned> SpannedSpannable for T {
     type Unspanned = T::Inner;

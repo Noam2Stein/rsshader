@@ -61,7 +61,7 @@ impl<'src> TypeDescribe for Ident<'src> {
         Description::new("an ident")
     }
 }
-impl<'src> UnspannedTokenTypeValidation<'src> for Ident<'src> {
+impl<'src> ValidatedTokenType<'src> for Ident<'src> {
 
 }
 
@@ -124,6 +124,11 @@ impl<'src> FromSrcUnchecked<'src> for SpannedIdent<'src> {
         }
     }
 }
+impl<'src> FromRawToken<'src> for SpannedIdent<'src> {
+    unsafe fn from_raw_token(src: &'src SrcFile, raw_token: RawToken, errs: &mut Vec<Error>) -> Self {
+        Self::from_src_unchecked(src, raw_token.span, errs)
+    }
+}
 impl<'src> ParseTokens<'src> for SpannedIdent<'src> {
     fn parse_tokens(mut tokens: impl Iterator<Item = TokenTree<'src>>, src: &'src SrcFile, errs: &mut Vec<Error>) -> Self {
         if let Some(token) = tokens.next() {
@@ -154,6 +159,6 @@ impl<'src> ParseTokens<'src> for SpannedIdent<'src> {
         }   
     }
 }
-impl<'src> SpannedTokenTypeValidation<'src> for SpannedIdent<'src> {
+impl<'src> ValidatedSpannedTokenType<'src> for SpannedIdent<'src> {
 
 }

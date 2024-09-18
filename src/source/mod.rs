@@ -1,12 +1,11 @@
 use super::diagnostic::*;
 
 pub mod span;
+pub mod srcfile;
 pub mod spannable;
+pub mod fromsrc;
 
 pub use span::*;
-pub use spannable::*;
-
-mod srcfile;
-mod fromsrc;
 pub use srcfile::*;
+pub use spannable::*;
 pub use fromsrc::*;

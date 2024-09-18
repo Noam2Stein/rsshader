@@ -131,7 +131,7 @@ impl TypeDescribe for Punct {
         Description::new("a punct")
     }
 }
-impl<'src> UnspannedTokenTypeValidation<'src> for Punct {
+impl<'src> ValidatedTokenType<'src> for Punct {
     
 }
 
@@ -224,6 +224,6 @@ impl<'src> ParseTokens<'src> for SpannedPunct {
         }   
     }
 }
-impl<'src> SpannedTokenTypeValidation<'src> for SpannedPunct {
+impl<'src> ValidatedSpannedTokenType<'src> for SpannedPunct {
 
 }

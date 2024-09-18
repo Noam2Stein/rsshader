@@ -110,7 +110,7 @@ impl TypeDescribe for IntLiteral {
         Description::new("an int literal")
     }
 }
-impl<'src> UnspannedTokenTypeValidation<'src> for IntLiteral {
+impl<'src> ValidatedTokenType<'src> for IntLiteral {
     
 }
 
@@ -180,10 +180,10 @@ impl<'src> ParseTokens<'src> for SpannedIntLiteral {
         }   
     }
 }
-impl<'src> UnspannedTokenTypeValidation<'src> for SpannedIntLiteral {
+impl<'src> ValidatedTokenType<'src> for SpannedIntLiteral {
     
 }
-impl<'src> SpannedTokenTypeValidation<'src> for SpannedIntLiteral {
+impl<'src> ValidatedSpannedTokenType<'src> for SpannedIntLiteral {
 
 }
 
