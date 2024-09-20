@@ -1,16 +1,24 @@
-use super::*;
+pub mod keyword;
+pub mod ident;
+pub mod punct;
+pub mod literal;
+pub mod group;
 
-mod parse;
-pub use parse::*;
+pub use keyword::*;
+pub use ident::*;
+pub use punct::*;
+pub use literal::*;
+pub use group::*;
+
+use super::*;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Hash, Ord)]
 pub enum TokenTree<'src> {
-    Keyword(SpannedKeyword),
-    Ident(SpannedIdent<'src>),
-    Punct(SpannedPunct),
-    Literal(SpannedLiteral<'src>),
+    Keyword(Keyword<'src>),
+    Ident(Ident<'src>),
+    Punct(Punct<'src>),
+    Literal(Literal<'src>),
     Group(Group<'src>),
-    InvalidAny(SpannedInvalidAny<'src>),
 }
 impl<'src> TokenTree<'src> {
     pub fn token_type_desc(&self) -> Description {
@@ -20,7 +28,6 @@ impl<'src> TokenTree<'src> {
             Self::Punct(_) => Punct::type_desc(),
             Self::Literal(_) => Literal::type_desc(),
             Self::Group(_) => Group::type_desc(),
-            Self::InvalidAny(_) => InvalidAny::type_desc(),
         }
     }
 }
@@ -32,19 +39,17 @@ impl<'src> Display for TokenTree<'src> {
             Self::Punct(tt) => tt.fmt(f),
             Self::Literal(tt) => tt.fmt(f),
             Self::Group(tt) => tt.fmt(f),
-            Self::InvalidAny(tt) => tt.fmt(f),
         }
     }
 }
 impl<'src> Spanned for TokenTree<'src> {
-    fn span(&self) -> Span {
+    fn span(&self, srcfile: &SrcFile) -> Span {
         match self {
-            Self::Keyword(tt) => tt.span(),
-            Self::Ident(tt) => tt.span(),
-            Self::Punct(tt) => tt.span(),
-            Self::Literal(tt) => tt.span(),
-            Self::Group(tt) => tt.span(),
-            Self::InvalidAny(tt) => tt.span(),
+            Self::Keyword(tt) => tt.span(srcfile),
+            Self::Ident(tt) => tt.span(srcfile),
+            Self::Punct(tt) => tt.span(srcfile),
+            Self::Literal(tt) => tt.span(srcfile),
+            Self::Group(tt) => tt.span(srcfile),
         }
     }
 }
@@ -56,7 +61,6 @@ impl<'src> Describe for TokenTree<'src> {
             Self::Punct(tt) => tt.desc(),
             Self::Literal(tt) => tt.desc(),
             Self::Group(tt) => tt.desc(),
-            Self::InvalidAny(tt) => tt.desc(),
         }
     }
 }
@@ -65,24 +69,60 @@ impl<'src> TypeDescribe for TokenTree<'src> {
         Description::new("a token tree")
     }
 }
+impl<'src> FromSrc<'src> for TokenTree<'src> {
+    fn from_src(srcslice: &'src SrcSlice) -> Result<Self, ErrorMessage> {
+        tokenize(srcfile)
+    }
+}
+impl<'src> FromSrcUnchecked<'src> for TokenTree<'src> {
+    unsafe fn from_src_unchecked(srcslice: &'src SrcSlice) -> Self {
+        todo!()
+    }
+}
+impl<'src> DefaultToken<'src> for TokenTree<'src> {
+    fn default_token(srcfile: &'src SrcFile, span: Span) -> Self {
+        Self::Ident(Ident::default_token(srcfile, span))
+    }
+}
 impl<'src> ParseTokens<'src> for TokenTree<'src> {
-    fn parse_tokens(mut tokens: impl Iterator<Item = TokenTree<'src>>, src: &'src SrcFile, errs: &mut Vec<Error>) -> Self {
-        if let Some(token) = tokens.next() {
-            token.clone()
+    fn parse_tokens(tokens: &mut impl TokenIterator<'src>, errs: &mut Vec<Error>) -> Self {
+        if let Some(token) = tokens.next(errs) {
+            token
         }
         else {
-            errs.push(Error::from_messages(src.span().last_byte(), [
+            let srcfile = tokens.srcfile();
+
+            errs.push(Error::from_messages(srcfile.span().end_span(), [
                 errm::unexpected_end_of_file(),
                 errm::expected(Self::type_desc())
             ]));
 
-            Self::InvalidAny(SpannedInvalidAny::empty())
-        }   
+            Self::default_token(srcfile, srcfile.span().end_span())
+        }
     }
 }
-impl<'src> ValidatedTokenType<'src> for TokenTree<'src> {
-    
+impl<'src> _ValidatedToken<'src> for TokenTree<'src> {
+
 }
-impl<'src> ValidatedSpannedTokenType<'src> for TokenTree<'src> {
+
+trait DefaultToken<'src> {
+    fn default_token(srcfile: &'src SrcFile, span: Span) -> Self;
+}
+
+trait _ValidatedToken<'src>:
+fmt::Debug +
+Clone +
+Eq +
+Ord +
+Hash +
+Display +
+Describe +
+TypeDescribe +
+Spanned +
+FromSrc<'src> +
+FromSrcUnchecked<'src> +
+DefaultToken<'src> +
+ParseTokens<'src> +
+{
 
 }

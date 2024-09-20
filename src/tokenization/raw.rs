@@ -2,13 +2,16 @@ use logos::{Lexer, Logos};
 
 use super::*;
 
-pub trait FromRawToken<'src>: Sized {
-    unsafe fn from_raw_token(src: &'src SrcFile, raw_token: RawToken, errs: &mut Vec<Error>) -> Self;
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum RawTokenType {
+    Ident,
+    IntLiteral,
+    FloatLiteral,
+    Punct,
+    GroupOpen,
+    GroupClose,
+    Invalid,
 }
-pub trait TryFromRawToken<'src>: Sized {
-    unsafe fn try_from_raw_token(src: &'src SrcFile, raw_token: RawToken, errs: &mut Vec<Error>) -> Option<Self>;
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct RawToken {
     pub span: Span,
@@ -20,32 +23,22 @@ impl<'src> TypeDescribe for RawToken {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum RawTokenType {
-    Ident,
-    IntLiteral,
-    FloatLiteral,
-    Punct,
-    GroupOpen,
-    GroupClose,
-    Invalid,
+pub trait FromRawToken<'src> {
+    fn from_raw_token(srcfile: &'src SrcFile<'src>, span: Span, errs: &mut Vec<Error>) -> Self;
 }
 
 #[derive(Debug, Clone)]
-pub struct RawTokenIter<'src> {
+pub struct RawTokenizer<'src> {
     lexer: Lexer<'src, LogosToken>,
 }
-impl<'src> RawTokenIter<'src> {
+impl<'src> RawTokenizer<'src> {
     pub fn new(src: &'src str) -> Self {
         Self {
             lexer: LogosToken::lexer(src)
         }
     }
-    pub fn src(&self) -> &'src SrcFile {
-        self.lexer.source().as_ref()
-    }
 }
-impl<'src> Iterator for RawTokenIter<'src> {
+impl<'src> Iterator for RawTokenizer<'src> {
     type Item = RawToken;
     fn next(&mut self) -> Option<Self::Item> {
         loop {

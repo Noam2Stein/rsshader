@@ -32,3 +32,6 @@ pub fn valid_forms_are(valid_forms: impl IntoIterator<Item = Description>) -> Er
 pub fn is_and_thus_cant_be_used_as(x: Description, y: Description, z: Description) -> ErrorMessage {
     ErrorMessage::Problem(format!("{x} is {y} and thus can't be used as {z}"))
 }
+pub fn is_too_large_for_the_literal_capacity(x: Description) -> ErrorMessage {
+    ErrorMessage::Problem(format!("{x} is too large for the literal capacity ({})", u128::MAX))
+}

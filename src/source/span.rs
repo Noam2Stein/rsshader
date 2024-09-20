@@ -1,106 +1,104 @@
 use std::{hash::Hash, ops::Range};
 
+use super::*;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct Span {
     start: usize,
-    end: usize,
+    len: usize,
 }
 impl Span {
-    pub const EMPTY: Self = Self {
-        start: 0,
-        end: 0,
-    };
-
     #[inline(always)]
-    pub const fn new(start: usize, end: usize) -> Self {
+    pub const fn start_end(start: usize, end: usize) -> Self {
         assert!(end >= start);
         Self {
             start,
-            end,
+            len: end - start,
         }
     }
     #[inline(always)]
     pub const fn sized(start: usize, len: usize) -> Self {
         Self {
             start,
-            end: start + len,
+            len,
         }
     }
 
     #[inline(always)]
-    pub const fn start(self) -> usize {
+    pub const fn start(&self) -> usize {
         self.start
     }
     #[inline(always)]
-    pub const fn end(self) -> usize {
-        self.end
+    pub const fn end(&self) -> usize {
+        self.start + self.len
     }
     #[inline(always)]
-    pub const fn len(self) -> usize {
-        self.end - self.start
+    pub const fn len(&self) -> usize {
+        self.len
     }
 
     #[inline(always)]
-    pub fn connect(self, other: Self) -> Self {
+    pub const fn start_span(&self) -> Self {
+        Self::sized(self.start, 0)
+    }
+    #[inline(always)]
+    pub const fn end_span(&self) -> Self {
+        Self::sized(self.end(), 0)
+    }
+
+    #[inline(always)]
+    pub fn connect(&self, other: &Self) -> Self {
         if self.len() == 0 {
-            other
+            *other
         }
         else if other.len() == 0 {
-            self
+            *self
         }
         else {
-            Self {
-                start: self.start.min(other.start),
-                end: self.end.max(other.end)
-            }
+            Self::start_end(self.start.min(other.start), self.end().max(other.end()))
         }
     }
     #[inline(always)]
-    pub const fn first_byte(self) -> Self {
-        if self.len() > 0 {
-            Self::sized(self.start, 1)
-        }
-        else {
-            Self::EMPTY
-        }
+    pub const fn first_byte(&self) -> Self {
+        self.with_len(1)
     }
     #[inline(always)]
-    pub const fn last_byte(self) -> Self {
-        if self.len() > 0 {
-            Self::sized(self.end - 1, 1)
-        }
-        else {
-            Self::EMPTY
-        }
+    pub const fn last_byte(&self) -> Self {
+        Self::sized(self.end() - 1, 1)
     }
 
     #[inline(always)]
     pub const fn intersects(&self, other: &Self) -> bool {
-        self.end > other.start && other.end > self.start
+        self.end() > other.start && other.end() > self.start
     }
 
     #[inline(always)]
-    pub fn into_range(self) -> Range<usize> {
-        self.into()
+    pub const fn with_len(&self, len: usize) -> Self {
+        Self {
+            start: self.start,
+            len,
+        }
+    }
+
+    #[inline(always)]
+    pub const fn range(&self) -> Range<usize> {
+        Range {
+            start: self.start,
+            end: self.end(),
+        }
     }
 }
 impl From<Range<usize>> for Span {
     fn from(value: Range<usize>) -> Self {
-        Self {
-            start: value.start,
-            end: value.end,
-        }
+        Self::start_end(value.start, value.end)
     }
 }
 impl From<Span> for Range<usize> {
     fn from(value: Span) -> Self {
-        Self {
-            start: value.start,
-            end: value.end,
-        }
+        value.range()
     }
 }
 
 pub trait Spanned {
-    fn span(&self) -> Span;
+    fn span(&self, srcfile: &SrcFile) -> Span;
 }

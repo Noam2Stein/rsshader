@@ -1,9 +1,13 @@
 use std::fmt::Display;
 
-use rsshader::{error::*, span::*, tokenization::*};
+use rsshader::{
+    diagnostic::*,
+    source::*,
+    tokenization::*,
+};
 
-const SRC: &str = "
-
+const SRC: &SrcFile = &SrcFile::new(
+    "
     fn test(a: f32, b: f32) -> f32 {
         a + b + 5u31
         htnj
@@ -14,15 +18,16 @@ const SRC: &str = "
         (
         (
     }
-
-";
+    "   
+);
 
 fn main() {
+    println!("starting");
     let (output, errs) = {
         let mut errs = Vec::new();
 
         let output = {
-            let stream = TokenStream::parse(SRC, &mut errs);
+            let stream = tokenize(SRC).collect(&mut errs);
             
             stream
         };
@@ -31,6 +36,9 @@ fn main() {
 
         (output, errs)
     };
+
+    println!("output created");
+    println!("output: {output}");
     
     let src = format_src(&errs);
 
@@ -70,7 +78,7 @@ fn format_src(errs: &[Error]) -> String {
         let next_span = err_spans[index + 1];
         
         if span.intersects(&next_span) {
-            err_spans[index] = Span::connect(span, next_span);
+            err_spans[index] = Span::connect(&span, &next_span);
             err_spans.remove(index + 1);
         }
         else {
@@ -79,7 +87,7 @@ fn format_src(errs: &[Error]) -> String {
     }
     
     err_spans.reverse();
-    let mut src = SRC.to_string();
+    let mut src = SRC.s().to_string();
     for span in err_spans {
         src.insert_str(span.end(), "\x1b[0m");
         src.insert_str(span.start(), "\x1b[31m");
@@ -102,7 +110,7 @@ fn format_src(errs: &[Error]) -> String {
     }).collect::<Box<[String]>>().join("\n")
 }
 fn span_line(span: Span) -> usize {
-    SRC[0..span.start()].chars().filter(|c| *c == '\n').count()
+    SRC.s()[0..span.start()].chars().filter(|c| *c == '\n').count()
 }
 fn line_label(line: usize) -> impl Display {
     line + 1

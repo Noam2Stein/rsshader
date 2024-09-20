@@ -10,20 +10,23 @@ impl<'src> TokenStream<'src> {
             tokens,
         }
     }
+
+    pub fn span(&self, srcfile: &'src SrcFile) -> Option<Span> {
+        self.tokens.first().map(|first|
+            first.span(srcfile).connect(&self.tokens.last().unwrap().span(srcfile))
+        )
+    }
+
+    pub fn into_iter(self, srcfile: &'src SrcFile<'src>) -> TokenStreamIter {
+        TokenStreamIter {
+            srcfile,
+            tokens: self.tokens.into_iter(),
+        }
+    }
 }
 impl<'src> Display for TokenStream<'src> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.tokens.iter().map(|tt| tt.to_string()).collect::<Box<[String]>>().join(" "))
-    }
-}
-impl<'src> Spanned for TokenStream<'src> {
-    fn span(&self) -> Span {
-        if self.tokens.len() == 0 {
-            Span::EMPTY
-        }
-        else {
-            Span::connect(self.tokens[0].span(), self.tokens.last().unwrap().span())
-        }
     }
 }
 impl<'src> Describe for TokenStream<'src> {
@@ -41,5 +44,18 @@ impl<'src> TypeDescribe for TokenStream<'src> {
 impl<'src> From<Vec<TokenTree<'src>>> for TokenStream<'src> {
     fn from(value: Vec<TokenTree<'src>>) -> Self {
         Self::new(value)
+    }
+}
+
+pub struct TokenStreamIter<'src> {
+    srcfile: &'src SrcFile<'src>,
+    tokens: <Vec<TokenTree<'src>> as IntoIterator>::IntoIter,
+}
+impl<'src> TokenIterator<'src> for TokenStreamIter<'src> {
+    fn next(&mut self, _errs: &mut Vec<Error>) -> Option<TokenTree<'src>> {
+        self.tokens.next()
+    }
+    fn srcfile(&self) -> &'src SrcFile<'src> {
+        self.srcfile
     }
 }

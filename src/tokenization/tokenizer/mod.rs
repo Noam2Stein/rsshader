@@ -1,243 +1,137 @@
 use super::*;
 
-pub fn tokenize<'src>(src: &'src SrcFile, errs: &mut Vec<Error>) -> impl Iterator<Item = TokenTree<'src>> {
-    let mut tokens = RawTokenIter::new(src);
+pub fn tokenize<'src>(srcfile: &'src SrcFile<'src>) -> Tokenizer<'src> {
+    Tokenizer::new(srcfile)
+}
 
-    let mut output = Vec::new();
-    
-    while let Some(token) = tokens.next() {
-        match token.ty {
-            RawTokenType::GroupOpen => {
-                let ReadGroupOutput { group, escaped_group_close } = read_group(token, &mut tokens, errs);
+pub struct Tokenizer<'src> {
+    srcfile: &'src SrcFile<'src>,
+    raw: RawTokenizer<'src>,
+}
+impl<'src> Tokenizer<'src> {
+    pub fn new(srcfile: &'src SrcFile<'src>) -> Self {
+        Self {
+            srcfile,
+            raw: RawTokenizer::new(srcfile.s()),
+        }
+    }
+}
+impl<'src> TokenIterator<'src> for Tokenizer<'src> {
+    fn next(&mut self, errs: &mut Vec<Error>) -> Option<TokenTree<'src>> {
+        match read_raw_token(self.srcfile, errs, &mut self.raw) {
+            ReadRawTokenOutput::GroupClose(raw_token) => {
+                let close_delimiter = Delimiter::from_close_str(self.srcfile[raw_token.span].s()).unwrap();
                 
-                output.push(TokenTree::Group(group));
-
-                if let Some(escaped_group_close) = escaped_group_close {
-                    read_close(escaped_group_close, errs)
-                }
-            }
-            RawTokenType::GroupClose => {
-                let close_delimiter = Delimiter::from_close_str(token.str).unwrap();
-                
-                errs.push(Error::from_messages(token.span, [
+                errs.push(Error::from_messages(raw_token.span, [
                     ErrorMessage::Problem(format!("closing delimiter without a group to close")),
                     errm::unmatched_delimiter(close_delimiter.open_desc()),
                     errm::expected(close_delimiter.close_desc()),
                 ]));
-            }
-            _ => {
-                read_raw_token(token, &mut output, errs)
+
+                self.next(errs)
+            },
+            ReadRawTokenOutput::TokenTree(tt) => {
+                Some(tt)
+            },
+            ReadRawTokenOutput::None => {
+                None
             }
         }
-    };
-    
-    output.into()
-}
-
-pub trait TokenIter<'src>: Sized {
-    fn next(&mut self, errs: &mut Vec<Error>) -> Option<TokenTree<'src>>;
-
-    fn collect(mut self, errs: &mut Vec<Error>) -> TokenStream<'src> {
-        let mut tokens = Vec::new();
-        while let Some(token) = self.next(errs) {
-            tokens.push(token);
-        }
-
-        tokens.into()
+    }
+    fn srcfile(&self) -> &'src SrcFile<'src> {
+        self.srcfile
     }
 }
 
-pub struct Tokenizer<'src> {
-    raw_tokens: RawTokenIter<'src>,
+enum ReadRawTokenOutput<'src> {
+    GroupClose(RawToken),
+    TokenTree(TokenTree<'src>),
+    None,
 }
-impl<'src> Tokenizer<'src> {
-    pub fn new(src: &'src SrcFile) -> Self {
-        Self {
-            raw_tokens: RawTokenIter::new(&src.s)
-        }
-    }
-}
-impl<'src> TokenIter<'src> for Tokenizer<'src> {
-    fn next(&mut self, errs: &mut Vec<Error>) -> Option<TokenTree<'src>> {
-        if let Some(raw_token) = self.raw_tokens.next() {
-            match raw_token.ty {
-                RawTokenType::GroupOpen => {
-                    let output = read_group(raw_token, &mut self.raw_tokens, errs);
-                    
-                    if let Some(escaped_group_close) = output.escaped_group_close {
-                        read_close(escaped_group_close, errs)
-                    }
 
-                    Some(
-                        TokenTree::Group(output.group)
-                    )
-                }
-                RawTokenType::GroupClose => {
-                    let close_delimiter = Delimiter::from_close_str(&self.raw_tokens.src()[raw_token.span]).unwrap();
-                    
-                    errs.push(Error::from_messages(raw_token.span, [
-                        ErrorMessage::Problem(format!("closing delimiter without a group to close")),
-                        errm::unmatched_delimiter(close_delimiter.open_desc()),
-                        errm::expected(close_delimiter.close_desc()),
-                    ]));
-
-                    None
-                }
-                _ => {
-                    read_raw_token(raw_token, &mut output, errs)
-                }
+fn read_raw_token<'src>(srcfile: &'src SrcFile<'src>, errs: &mut Vec<Error>, raw_tokens: &mut RawTokenizer<'src>) -> ReadRawTokenOutput<'src> {
+    if let Some(raw_token) = raw_tokens.next() {
+        let srcslice = &srcfile[raw_token.span];
+        match raw_token.ty {
+            RawTokenType::Ident =>
+            if let Ok(keyword) = Keyword::from_src(srcslice) {
+                ReadRawTokenOutput::TokenTree(
+                    TokenTree::Keyword(keyword)
+                )
             }
-        }
-    }    
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-struct GroupEdge {
-    delimiter: Delimiter,
-    span: Span,
-}
-struct ReadGroupOutput<'src> {
-    group: Group<'src>,
-    escaped_group_close: Option<GroupEdge>,
-}
-
-#[inline(always)]
-fn read_close(close: GroupEdge, errs: &mut Vec<Error>) {
-    errs.push(Error::from_messages(close.span, [
-        ErrorMessage::Problem(format!("closing delimiter without a group to close")),
-        errm::unmatched_delimiter(close.delimiter.open_desc()),
-        errm::expected(close.delimiter.close_desc()),
-    ]));
-}
-
-fn read_group<'src>(open: RawToken, tokens: &mut RawTokenIter, errs: &mut Vec<Error>) -> ReadGroupOutput<'src> {
-    let open = GroupEdge {
-        delimiter: Delimiter::from_open_str(open.str).unwrap(),
-        span: open.span,
-    };
-
-    let mut output = Vec::new();
-
-    while let Some(token) = tokens.next() {        
-        match token.ty {
+            else {
+                ReadRawTokenOutput::TokenTree(
+                    TokenTree::Ident(unsafe { Ident::from_src_unchecked(srcslice) })
+                )
+            },
+            RawTokenType::IntLiteral => ReadRawTokenOutput::TokenTree(
+                TokenTree::Literal(Literal::Int(
+                    IntLiteral::from_raw_token(srcfile, raw_token.span, errs)
+                ))
+            ),
+            RawTokenType::FloatLiteral => ReadRawTokenOutput::TokenTree(
+                TokenTree::Literal(Literal::Float(
+                    FloatLiteral::from_raw_token(srcfile, raw_token.span, errs)
+                ))
+            ),
+            RawTokenType::Punct => ReadRawTokenOutput::TokenTree(
+                TokenTree::Punct(Punct::from_raw_token(srcfile, raw_token.span, errs))
+            ),
             RawTokenType::GroupOpen => {
-                let ReadGroupOutput { group, escaped_group_close } = read_group(token, tokens, errs);
-                
-                output.push(TokenTree::Group(group));
+                let delimiter = Delimiter::from_open_str(srcslice.s()).unwrap();
+            
+                let mut group_tts = Vec::new();
+                loop {
+                    match read_raw_token(srcfile, errs, raw_tokens) {
+                        ReadRawTokenOutput::GroupClose(raw_token) => {
+                            let srcslice = &srcfile[raw_token.span];
+                            let close_delimiter = Delimiter::from_close_str(srcslice.s()).unwrap();
 
-                if let Some(escaped_group_close) = escaped_group_close {
-                    return read_group_close(open, escaped_group_close, output.into(), errs)
+                            let stream = TokenStream::from(group_tts);
+                            let srcslice = &srcfile[
+                                match stream.span(srcfile) {
+                                    Some(stream_span) => raw_token.span.connect(&stream_span),
+                                    None => raw_token.span,
+                                }
+                            ];
+
+                            if close_delimiter != delimiter {
+                                errs.push(Error::from_messages(raw_token.span, [
+                                    errm::unmatched_delimiter(delimiter.open_desc()),
+                                    errm::expected_found(delimiter.close_desc(), close_delimiter.close_desc())
+                                ]));
+                            }
+
+                            break ReadRawTokenOutput::TokenTree(TokenTree::Group(
+                                Group {
+                                    delimiter,
+                                    srcslice,
+                                    stream,
+                                }
+                            ));
+                        }
+                        ReadRawTokenOutput::TokenTree(tt) => {
+                            group_tts.push(tt);
+                        }
+                        ReadRawTokenOutput::None => {
+
+                        }
+                    }
                 }
             }
             RawTokenType::GroupClose => {
-                let close = GroupEdge {
-                    delimiter: Delimiter::from_close_str(token.str).unwrap(),
-                    span: token.span,
-                };
-
-                return read_group_close(open, close, output.into(), errs)
+                ReadRawTokenOutput::GroupClose(raw_token)
             }
-            _ => {
-                read_raw_token(token, &mut output, errs)
+            RawTokenType::Invalid => {
+                errs.push(Error::from_messages(raw_token.span, [
+                    errm::is_not(Description::quote(srcfile[raw_token.span].s()), RawToken::type_desc())
+                ]));
+    
+                read_raw_token(srcfile, errs, raw_tokens)
             }
-        }
-    };
-    
-    '_group_unclosed: {
-        let stream = TokenStream::from(output);
-        let span = open.span.connect(stream.span);
-    
-        errs.push(
-            Error::from_messages(span, [
-                errm::unmatched_delimiter(open.delimiter.open_desc()),
-                errm::unexpected_end_of_file(),
-                errm::expected(open.delimiter.close_desc())
-            ])
-        );
-
-        ReadGroupOutput {
-            group: Group {
-                delimiter: open.delimiter,
-                stream,
-                span,
-            },
-            escaped_group_close: None,
-        }
-    }
-}
-
-#[inline(always)]
-fn read_group_close<'src>(open: GroupEdge, close: GroupEdge, stream: TokenStream, errs: &mut Vec<Error>) -> ReadGroupOutput<'src> {
-    if close.delimiter == open.delimiter {
-        ReadGroupOutput {
-            group: Group {
-                delimiter: open.delimiter,
-                stream: stream,
-                span: open.span.connect(close.span),
-            },
-            escaped_group_close: None,
         }
     }
     else {
-        errs.push(Error::from_messages(open.span, [
-            errm::unmatched_delimiter(open.delimiter.open_desc()),
-            errm::expected_found(open.delimiter.close_desc(), close.delimiter.close_desc()),
-        ]));
-
-        ReadGroupOutput {
-            group: Group {
-                delimiter: open.delimiter,
-                span: open.span.connect(stream.span),
-                stream: stream,
-            },
-            escaped_group_close: Some(close),
-        }
-    }
-}
-
-#[inline(always)]
-fn read_raw_token<'src>(src: &'src SrcFile, raw_token: RawToken, errs: &mut Vec<Error>) -> TokenTree<'src> {
-    match raw_token.ty {
-        RawTokenType::Ident =>
-        if let Some(keyword) = SpannedKeyword::from_src(src, raw_token.span) {
-            TokenTree::Keyword(keyword)
-        }
-        else {
-            TokenTree::Ident(
-                unsafe { SpannedIdent::parse_unchecked(raw_token.str, raw_token.span.start()) }
-            )
-        },
-        RawTokenType::IntLiteral => output.push(
-            TokenTree::Literal(Literal::Int(
-                IntLiteral::parse_unsuffixed(raw_token.str, raw_token.span.start()).unwrap_or_else(|err| {
-                    errs.push(Error::from_messages(raw_token.span, [
-                        ErrorMessage::Problem(err)
-                    ]));
-                    IntLiteral::default()
-                })
-            ))
-        ),
-        RawTokenType::FloatLiteral => output.push(
-            TokenTree::Literal(Literal::Float(
-                FloatLiteral::parse_unsuffixed(raw_token.str, raw_token.span.start()).unwrap_or_else(|err| {
-                    errs.push(Error::from_messages(raw_token.span, [
-                        ErrorMessage::Problem(err)
-                    ]));
-                    FloatLiteral::default()
-                })
-            ))
-        ),
-        RawTokenType::Punct => output.push(
-            TokenTree::Punct(Punct::parse(raw_token.str, raw_token.span.start()).unwrap())
-        ),
-        RawTokenType::GroupOpen => {
-            unreachable!()
-        }
-        RawTokenType::GroupClose => {
-            unreachable!()
-        }
-        RawTokenType::Invalid => errs.push(Error::from_messages(raw_token.span, [
-            errm::is_not(Description::quote(raw_token.str), RawToken::type_desc())
-        ]))
+        ReadRawTokenOutput::None
     }
 }

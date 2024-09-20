@@ -1,6 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::source::span::{Span, Spanned};
+use crate::source::span::Span;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Error {
@@ -47,11 +47,6 @@ impl Error {
 impl Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.problems.join(". "))
-    }
-}
-impl Spanned for Error {
-    fn span(&self) -> Span {
-        self.span
     }
 }
 impl std::error::Error for Error {

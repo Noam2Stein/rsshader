@@ -1,4 +1,4 @@
-use std::{fmt::Display, mem};
+use std::{fmt::{self, Display, Formatter}, mem};
 
 #[repr(transparent)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -6,11 +6,26 @@ pub struct Description {
     pub s: String,
 }
 impl Description {
+    #[inline(always)]
+    pub fn an_empty_str() -> Self {
+        Self::new("an empty string")
+    }
+    #[inline(always)]
+    pub fn a_whole_number() -> Self {
+        Self::new("a whole number")
+    }
+    #[inline(always)]
+    pub fn a_decimal_number() -> Self {
+        Self::new("a decimal number")
+    }
+
+    #[inline(always)]
     pub fn new(s: impl Into<String>) -> Self {
         Self {
             s: s.into()
         }
     }
+    #[inline(always)]
     pub fn quote(s: &str) -> Self {
         Self {
             s: format!("'{s}'")
@@ -38,7 +53,8 @@ impl Description {
     }
 }
 impl Display for Description {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    #[inline(always)]
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         self.s.fmt(f)
     }
 }
@@ -46,6 +62,7 @@ pub trait DescriptionArrayExt {
     fn as_strings(&self) -> &[String];
 }
 impl DescriptionArrayExt for [Description] {
+    #[inline(always)]
     fn as_strings(&self) -> &[String] {
         unsafe {
             mem::transmute(self)
