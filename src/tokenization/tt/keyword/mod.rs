@@ -49,11 +49,11 @@ impl<'src> TypeDescribe for Keyword<'src> {
         Description::new("a keyword")
     }
 }
-impl<'src> Spanned for Keyword<'src> {
+impl<'src> GetSrcSlice<'src> for Keyword<'src> {
     #[inline(always)]
-    fn span(&self, srcfile: &SrcFile) -> Span {
+    fn srcslice(&self) -> &'src SrcSlice {
         unsafe {
-            self.start.with_len(self.s().len()).span(srcfile)
+            self.start.with_len(self.s().len())
         }
     }
 }
@@ -78,38 +78,34 @@ impl<'src> FromSrcUnchecked<'src> for Keyword<'src> {
     }
 }
 impl<'src> DefaultToken<'src> for Keyword<'src> {
-    fn default_token(srcfile: &'src SrcFile, span: Span) -> Self {
+    fn default_token(srcslice: &'src SrcSlice) -> Self {
         Self {
             id: 0,
-            start: &srcfile[span].start()
+            start: &srcslice.start()
         }
     }
 }
 impl<'src> ParseTokens<'src> for Keyword<'src> {
-    fn parse_tokens(tokens: &mut impl TokenIterator<'src>, errs: &mut Vec<Error>) -> Self {
-        if let Some(token) = tokens.next(errs) {
+    fn parse_tokens(parser: &mut impl TokenParser<'src>, errs: &mut Vec<Error<'src>>) -> Self {
+        if let Some(token) = parser.next(errs) {
             if let TokenTree::Keyword(token) = token {
                 token
             }
             else {
-                let srcfile = tokens.srcfile();
-
-                errs.push(Error::from_messages(token.span(srcfile), [
+                errs.push(Error::from_messages(token.srcslice(), [
                     errm::expected_found(Self::type_desc(), token.token_type_desc())
                 ]));
 
-                Self::default_token(srcfile, token.span(srcfile))
+                Self::default_token(token.srcslice())
             }
         }
         else {
-            let srcfile = tokens.srcfile();
-
-            errs.push(Error::from_messages(srcfile.span().end_span(), [
+            errs.push(Error::from_messages(parser.end_srcslice(), [
                 errm::unexpected_end_of_file(),
                 errm::expected(Self::type_desc())
             ]));
 
-            Self::default_token(srcfile, srcfile.span().end_span())
+            Self::default_token(parser.end_srcslice().with_len(0))
         }
     }
 }

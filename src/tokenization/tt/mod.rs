@@ -42,15 +42,15 @@ impl<'src> Display for TokenTree<'src> {
         }
     }
 }
-impl<'src> Spanned for TokenTree<'src> {
-    fn span(&self, srcfile: &SrcFile) -> Span {
+impl<'src> GetSrcSlice<'src> for TokenTree<'src> {
+    fn srcslice(&self) -> &'src SrcSlice {
         match self {
-            Self::Keyword(tt) => tt.span(srcfile),
-            Self::Ident(tt) => tt.span(srcfile),
-            Self::Punct(tt) => tt.span(srcfile),
-            Self::Literal(tt) => tt.span(srcfile),
-            Self::Group(tt) => tt.span(srcfile),
-        }
+            Self::Keyword(tt) => tt.srcslice(),
+            Self::Ident(tt) => tt.srcslice(),
+            Self::Punct(tt) => tt.srcslice(),
+            Self::Literal(tt) => tt.srcslice(),
+            Self::Group(tt) => tt.srcslice(),
+        }   
     }
 }
 impl<'src> Describe for TokenTree<'src> {
@@ -71,7 +71,7 @@ impl<'src> TypeDescribe for TokenTree<'src> {
 }
 impl<'src> FromSrc<'src> for TokenTree<'src> {
     fn from_src(srcslice: &'src SrcSlice) -> Result<Self, ErrorMessage> {
-        tokenize(srcfile)
+        todo!()
     }
 }
 impl<'src> FromSrcUnchecked<'src> for TokenTree<'src> {
@@ -80,24 +80,22 @@ impl<'src> FromSrcUnchecked<'src> for TokenTree<'src> {
     }
 }
 impl<'src> DefaultToken<'src> for TokenTree<'src> {
-    fn default_token(srcfile: &'src SrcFile, span: Span) -> Self {
-        Self::Ident(Ident::default_token(srcfile, span))
+    fn default_token(srcslice: &'src SrcSlice) -> Self {
+        Self::Ident(Ident::default_token(srcslice))
     }
 }
 impl<'src> ParseTokens<'src> for TokenTree<'src> {
-    fn parse_tokens(tokens: &mut impl TokenIterator<'src>, errs: &mut Vec<Error>) -> Self {
+    fn parse_tokens(tokens: &mut impl TokenParser<'src>, errs: &mut Vec<Error<'src>>) -> Self {
         if let Some(token) = tokens.next(errs) {
             token
         }
         else {
-            let srcfile = tokens.srcfile();
-
-            errs.push(Error::from_messages(srcfile.span().end_span(), [
+            errs.push(Error::from_messages(tokens.end_srcslice(), [
                 errm::unexpected_end_of_file(),
                 errm::expected(Self::type_desc())
             ]));
 
-            Self::default_token(srcfile, srcfile.span().end_span())
+            Self::default_token(tokens.end_srcslice().with_len(0))
         }
     }
 }
@@ -106,7 +104,7 @@ impl<'src> _ValidatedToken<'src> for TokenTree<'src> {
 }
 
 trait DefaultToken<'src> {
-    fn default_token(srcfile: &'src SrcFile, span: Span) -> Self;
+    fn default_token(srcslice: &'src SrcSlice) -> Self;
 }
 
 trait _ValidatedToken<'src>:
@@ -118,7 +116,7 @@ Hash +
 Display +
 Describe +
 TypeDescribe +
-Spanned +
+GetSrcSlice<'src> +
 FromSrc<'src> +
 FromSrcUnchecked<'src> +
 DefaultToken<'src> +

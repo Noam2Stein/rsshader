@@ -13,42 +13,50 @@ pub enum RawTokenType {
     Invalid,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct RawToken {
-    pub span: Span,
+pub struct RawToken<'src> {
+    pub srcslice: &'src SrcSlice,
     pub ty: RawTokenType,
 }
-impl<'src> TypeDescribe for RawToken {
+impl<'src> Describe for RawToken<'src> {
+    fn desc(&self) -> Description {
+        self.srcslice.desc()
+    }
+}
+impl<'src> TypeDescribe for RawToken<'src> {
     fn type_desc() -> Description {
         Description::new("a token")
     }
 }
 
 pub trait FromRawToken<'src> {
-    fn from_raw_token(srcfile: &'src SrcFile<'src>, span: Span, errs: &mut Vec<Error>) -> Self;
+    fn from_raw_token(raw_token: RawToken<'src>, errs: &mut Vec<Error<'src>>) -> Self;
 }
 
 #[derive(Debug, Clone)]
 pub struct RawTokenizer<'src> {
+    srcfile: &'src SrcFile,
     lexer: Lexer<'src, LogosToken>,
 }
 impl<'src> RawTokenizer<'src> {
-    pub fn new(src: &'src str) -> Self {
+    pub fn new(srcfile: &'src SrcFile, span: Span) -> Self {
         Self {
-            lexer: LogosToken::lexer(src)
+            srcfile,
+            lexer: LogosToken::lexer(srcfile[span].s())
         }
+    }
+
+    pub fn srcfile(&self) -> &'src SrcFile {
+        self.srcfile
     }
 }
 impl<'src> Iterator for RawTokenizer<'src> {
-    type Item = RawToken;
+    type Item = RawToken<'src>;
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             if let Some(token) = self.lexer.next() {
-                let span_range = self.lexer.span();
-                let span = Span::from(span_range);
-                
                 break Some(
                     RawToken {
-                        span,
+                        srcslice: unsafe { mem::transmute(&self.lexer.source()[self.lexer.span()]) },
                         ty: if let Ok(token) = token {
                             match token {
                                 LogosToken::Ident => RawTokenType::Ident,

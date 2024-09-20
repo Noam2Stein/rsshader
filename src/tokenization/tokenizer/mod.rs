@@ -1,28 +1,28 @@
 use super::*;
 
-pub fn tokenize<'src>(srcfile: &'src SrcFile<'src>) -> Tokenizer<'src> {
-    Tokenizer::new(srcfile)
+pub fn tokenize<'src>(srcfile: &'src SrcFile) -> Tokenizer<'src> {
+    Tokenizer::new(srcfile, srcfile.span())
 }
 
+#[repr(transparent)]
 pub struct Tokenizer<'src> {
-    srcfile: &'src SrcFile<'src>,
     raw: RawTokenizer<'src>,
 }
 impl<'src> Tokenizer<'src> {
-    pub fn new(srcfile: &'src SrcFile<'src>) -> Self {
+    #[inline(always)]
+    pub fn new(srcfile: &'src SrcFile, span: Span) -> Self {
         Self {
-            srcfile,
-            raw: RawTokenizer::new(srcfile.s()),
+            raw: RawTokenizer::new(srcfile, span),
         }
     }
 }
-impl<'src> TokenIterator<'src> for Tokenizer<'src> {
+impl<'src> TokenParser<'src> for Tokenizer<'src> {
     fn next(&mut self, errs: &mut Vec<Error>) -> Option<TokenTree<'src>> {
-        match read_raw_token(self.srcfile, errs, &mut self.raw) {
+        match read_raw_token(self.srcfile(), errs, &mut self.raw) {
             ReadRawTokenOutput::GroupClose(raw_token) => {
-                let close_delimiter = Delimiter::from_close_str(self.srcfile[raw_token.span].s()).unwrap();
+                let close_delimiter = Delimiter::from_close_str(raw_token.s()).unwrap();
                 
-                errs.push(Error::from_messages(raw_token.span, [
+                errs.push(Error::from_messages(raw_token.span(self.srcfile()), [
                     ErrorMessage::Problem(format!("closing delimiter without a group to close")),
                     errm::unmatched_delimiter(close_delimiter.open_desc()),
                     errm::expected(close_delimiter.close_desc()),
@@ -38,47 +38,46 @@ impl<'src> TokenIterator<'src> for Tokenizer<'src> {
             }
         }
     }
-    fn srcfile(&self) -> &'src SrcFile<'src> {
-        self.srcfile
+    fn srcfile(&self) -> &'src SrcFile {
+        &self.raw.srcfile()
     }
 }
 
 enum ReadRawTokenOutput<'src> {
-    GroupClose(RawToken),
+    GroupClose(&'src SrcSlice),
     TokenTree(TokenTree<'src>),
     None,
 }
 
-fn read_raw_token<'src>(srcfile: &'src SrcFile<'src>, errs: &mut Vec<Error>, raw_tokens: &mut RawTokenizer<'src>) -> ReadRawTokenOutput<'src> {
+fn read_raw_token<'src>(srcfile: &'src SrcFile, errs: &mut Vec<Error>, raw_tokens: &mut RawTokenizer<'src>) -> ReadRawTokenOutput<'src> {
     if let Some(raw_token) = raw_tokens.next() {
-        let srcslice = &srcfile[raw_token.span];
         match raw_token.ty {
             RawTokenType::Ident =>
-            if let Ok(keyword) = Keyword::from_src(srcslice) {
+            if let Ok(keyword) = Keyword::from_src(raw_token.srcslice) {
                 ReadRawTokenOutput::TokenTree(
                     TokenTree::Keyword(keyword)
                 )
             }
             else {
                 ReadRawTokenOutput::TokenTree(
-                    TokenTree::Ident(unsafe { Ident::from_src_unchecked(srcslice) })
+                    TokenTree::Ident(unsafe { Ident::from_src_unchecked(raw_token.srcslice) })
                 )
             },
             RawTokenType::IntLiteral => ReadRawTokenOutput::TokenTree(
                 TokenTree::Literal(Literal::Int(
-                    IntLiteral::from_raw_token(srcfile, raw_token.span, errs)
+                    IntLiteral::from_raw_token(raw_token, errs)
                 ))
             ),
             RawTokenType::FloatLiteral => ReadRawTokenOutput::TokenTree(
                 TokenTree::Literal(Literal::Float(
-                    FloatLiteral::from_raw_token(srcfile, raw_token.span, errs)
+                    FloatLiteral::from_raw_token(raw_token, errs)
                 ))
             ),
             RawTokenType::Punct => ReadRawTokenOutput::TokenTree(
-                TokenTree::Punct(Punct::from_raw_token(srcfile, raw_token.span, errs))
+                TokenTree::Punct(Punct::from_raw_token(raw_token, errs))
             ),
             RawTokenType::GroupOpen => {
-                let delimiter = Delimiter::from_open_str(srcslice.s()).unwrap();
+                let delimiter = Delimiter::from_open_str(raw_token.srcslice.s()).unwrap();
             
                 let mut group_tts = Vec::new();
                 loop {

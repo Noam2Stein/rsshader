@@ -1,7 +1,5 @@
 use std::{hash::Hash, ops::Range};
 
-use super::*;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct Span {
     start: usize,
@@ -97,8 +95,4 @@ impl From<Span> for Range<usize> {
     fn from(value: Span) -> Self {
         value.range()
     }
-}
-
-pub trait Spanned {
-    fn span(&self, srcfile: &SrcFile) -> Span;
 }

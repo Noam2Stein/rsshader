@@ -25,9 +25,9 @@ impl<'src> TypeDescribe for FloatLiteral<'src> {
         Description::new("a float literal")
     }
 }
-impl<'src> Spanned for FloatLiteral<'src> {
-    fn span(&self, srcfile: &SrcFile) -> Span {
-        self.srcslice.span(srcfile)
+impl<'src> GetSrcSlice<'src> for FloatLiteral<'src> {
+    fn srcslice(&self) -> &'src SrcSlice {   
+        self.srcslice
     }
 }
 impl<'src> FromSrc<'src> for FloatLiteral<'src> {
@@ -94,60 +94,52 @@ impl<'src> FromSrcUnchecked<'src> for FloatLiteral<'src> {
     }
 }
 impl<'src> DefaultToken<'src> for FloatLiteral<'src> {
-    fn default_token(srcfile: &'src SrcFile, span: Span) -> Self {
+    fn default_token(srcslice: &'src SrcSlice) -> Self {
         Self {
             integral_value: 0,
             fractional_value: 0,
             suffix: None,
-            srcslice: &srcfile[span]
+            srcslice,
         }
     }
 }
 impl<'src> ParseTokens<'src> for FloatLiteral<'src> {
-    fn parse_tokens(tokens: &mut impl TokenIterator<'src>, errs: &mut Vec<Error>) -> Self {
-        if let Some(token) = tokens.next(errs) {
+    fn parse_tokens(parser: &mut impl TokenParser<'src>, errs: &mut Vec<Error<'src>>) -> Self {
+        if let Some(token) = parser.next(errs) {
             if let TokenTree::Literal(token) = token {
                 if let Literal::Float(token) = token {
                     token
                 }
                 else {
-                    let srcfile = tokens.srcfile();
-
-                    errs.push(Error::from_messages(token.span(srcfile), [
+                    errs.push(Error::from_messages(token.srcslice(), [
                         errm::expected_found(Self::type_desc(), token.literal_type_desc())
                     ]));
 
-                    Self::default_token(srcfile, token.span(srcfile))
+                    Self::default_token(token.srcslice())
                 }
             }
             else {
-                let srcfile = tokens.srcfile();
-
-                errs.push(Error::from_messages(token.span(srcfile), [
+                errs.push(Error::from_messages(token.srcslice(), [
                     errm::expected_found(Self::type_desc(), token.token_type_desc())
                 ]));
 
-                Self::default_token(srcfile, token.span(srcfile))
+                Self::default_token(token.srcslice())
             }
         }
         else {
-            let srcfile = tokens.srcfile();
-
-            errs.push(Error::from_messages(srcfile.span().end_span(), [
+            errs.push(Error::from_messages(parser.end_srcslice(), [
                 errm::unexpected_end_of_file(),
                 errm::expected(Self::type_desc())
             ]));
-            
-            Self::default_token(srcfile, srcfile.span().end_span())
+
+            Self::default_token(parser.end_srcslice().with_len(0))
         }
     }
 }
 impl<'src> FromRawToken<'src> for FloatLiteral<'src> {
-    fn from_raw_token(srcfile: &'src SrcFile<'src>, span: Span, errs: &mut Vec<Error>) -> Self {
-        let srcslice = &srcfile[span];
-
-        let mid = srcslice.s().find(|c: char| c.is_alphabetic()).unwrap_or(srcslice.s().len());
-        let (value_s, suffix_s) = srcslice.s().split_at(mid);
+    fn from_raw_token(raw_token: RawToken<'src>, errs: &mut Vec<Error<'src>>) -> Self {
+        let mid = raw_token.srcslice.s().find(|c: char| c.is_alphabetic()).unwrap_or(raw_token.srcslice.s().len());
+        let (value_s, suffix_s) = raw_token.srcslice.s().split_at(mid);
 
         let (integral_value, fractional_value) = {
             let split_value_s = value_s.split(".").collect::<Box<[&str]>>();
@@ -160,7 +152,7 @@ impl<'src> FromRawToken<'src> for FloatLiteral<'src> {
                         integral_value
                     }
                     else {
-                        errs.push(Error::from_messages(span, [
+                        errs.push(Error::from_messages(&raw_token.srcslice, [
                             errm::is_too_large_for_the_literal_capacity(Description::quote(integral_value_s))
                         ]));
             
@@ -170,7 +162,7 @@ impl<'src> FromRawToken<'src> for FloatLiteral<'src> {
                         fractional_value
                     }
                     else {
-                        errs.push(Error::from_messages(span, [
+                        errs.push(Error::from_messages(&raw_token.srcslice, [
                             errm::is_too_large_for_the_literal_capacity(Description::quote(fractional_value_s))
                         ]));
             
@@ -186,7 +178,7 @@ impl<'src> FromRawToken<'src> for FloatLiteral<'src> {
         let suffix = match FloatSuffix::option_from_str(suffix_s) {
             Ok(suffix) => suffix,
             Err(err) => {
-                errs.push(Error::from_messages(span, [
+                errs.push(Error::from_messages(&raw_token.srcslice, [
                     err
                 ]));
 
@@ -198,7 +190,7 @@ impl<'src> FromRawToken<'src> for FloatLiteral<'src> {
             integral_value,
             fractional_value,
             suffix,
-            srcslice,
+            srcslice: raw_token.srcslice,
         }
     }
 }
@@ -211,7 +203,7 @@ pub struct FloatSuffix {
     id: u8,
 }
 impl FloatSuffix {
-    pub const STRS: [&str; 4] = [
+    pub const STRS: [&'static str; 4] = [
         "f16",
         "f32",
         "f64",

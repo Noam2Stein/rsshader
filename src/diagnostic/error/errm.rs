@@ -1,6 +1,4 @@
-use crate::diagnostic::desc::Description;
-
-use super::ErrorMessage;
+use super::*;
 
 pub fn expected(expected: Description) -> ErrorMessage {
     ErrorMessage::Problem(format!("expected {expected}"))

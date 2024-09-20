@@ -73,11 +73,10 @@ impl<'src> TypeDescribe for Punct<'src> {
         Description::new("a punct")
     }
 }
-impl<'src> Spanned for Punct<'src> {
-    #[inline(always)]
-    fn span(&self, srcfile: &SrcFile) -> Span {
+impl<'src> GetSrcSlice<'src> for Punct<'src> {
+    fn srcslice(&self) -> &'src SrcSlice {
         unsafe {
-            self.start.with_len(self.s().len()).span(srcfile)
+            self.start.with_len(self.s().len())
         }
     }
 }
@@ -102,51 +101,47 @@ impl<'src> FromSrcUnchecked<'src> for Punct<'src> {
     }
 }
 impl<'src> DefaultToken<'src> for Punct<'src> {
-    fn default_token(srcfile: &'src SrcFile, span: Span) -> Self {
+    fn default_token(srcslice: &'src SrcSlice) -> Self {
         Self {
             id: 0,
-            start: &srcfile[span].start()
+            start: &srcslice.start()
         }
     }
 }
 impl<'src> ParseTokens<'src> for Punct<'src> {
-    fn parse_tokens(tokens: &mut impl TokenIterator<'src>, errs: &mut Vec<Error>) -> Self {
-        if let Some(token) = tokens.next(errs) {
+    fn parse_tokens(parser: &mut impl TokenParser<'src>, errs: &mut Vec<Error<'src>>) -> Self {
+        if let Some(token) = parser.next(errs) {
             if let TokenTree::Punct(token) = token {
                 token
             }
             else {
-                let srcfile = tokens.srcfile();
-
-                errs.push(Error::from_messages(token.span(srcfile), [
+                errs.push(Error::from_messages(token.srcslice(), [
                     errm::expected_found(Self::type_desc(), token.token_type_desc())
                 ]));
 
-                Self::default_token(srcfile, token.span(srcfile))
+                Self::default_token(token.srcslice())
             }
         }
         else {
-            let srcfile = tokens.srcfile();
-
-            errs.push(Error::from_messages(srcfile.span().end_span(), [
+            errs.push(Error::from_messages(parser.end_srcslice(), [
                 errm::unexpected_end_of_file(),
                 errm::expected(Self::type_desc())
             ]));
 
-            Self::default_token(srcfile, srcfile.span().end_span())
+            Self::default_token(parser.end_srcslice().with_len(0))
         }
     }
 }
 impl<'src> FromRawToken<'src> for Punct<'src> {
-    fn from_raw_token(srcfile: &'src SrcFile<'src>, span: Span, errs: &mut Vec<Error>) -> Self {
-        match Self::from_src(&srcfile[span]) {
+    fn from_raw_token(raw_token: RawToken<'src>, errs: &mut Vec<Error<'src>>) -> Self {
+        match Self::from_src(&raw_token.srcslice) {
             Ok(punct) => punct,
             Err(err) => {
-                errs.push(Error::from_messages(span, [
+                errs.push(Error::from_messages(&raw_token.srcslice, [
                     err
                 ]));
 
-                Self::default_token(srcfile, span)
+                Self::default_token(&raw_token.srcslice)
             }
         }
     }

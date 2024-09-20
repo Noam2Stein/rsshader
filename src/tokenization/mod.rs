@@ -6,11 +6,9 @@ mod raw;
 use raw::*;
 
 pub mod tt;
-pub mod iter;
-pub mod stream;
+pub mod parser;
 pub mod tokenizer;
 
 pub use tt::*;
-pub use iter::*;
-pub use stream::*;
+pub use parser::*;
 pub use tokenizer::*;

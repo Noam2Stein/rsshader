@@ -24,9 +24,9 @@ impl<'src> TypeDescribe for IntLiteral<'src> {
         Description::new("an int literal")
     }
 }
-impl<'src> Spanned for IntLiteral<'src> {
-    fn span(&self, srcfile: &SrcFile) -> Span {
-        self.srcslice.span(srcfile)
+impl<'src> GetSrcSlice<'src> for IntLiteral<'src> {
+    fn srcslice(&self) -> &'src SrcSlice {
+        self.srcslice
     }
 }
 impl<'src> FromSrc<'src> for IntLiteral<'src> {
@@ -67,86 +67,78 @@ impl<'src> FromSrcUnchecked<'src> for IntLiteral<'src> {
     }
 }
 impl<'src> DefaultToken<'src> for IntLiteral<'src> {
-    fn default_token(srcfile: &'src SrcFile, span: Span) -> Self {
+    fn default_token(srcslice: &'src SrcSlice) -> Self {   
         Self {
             value: 0,
             suffix: None,
-            srcslice: &srcfile[span]
+            srcslice,
         }
     }
 }
 impl<'src> ParseTokens<'src> for IntLiteral<'src> {
-    fn parse_tokens(tokens: &mut impl TokenIterator<'src>, errs: &mut Vec<Error>) -> Self {
-        if let Some(token) = tokens.next(errs) {
+    fn parse_tokens(parser: &mut impl TokenParser<'src>, errs: &mut Vec<Error<'src>>) -> Self {
+        if let Some(token) = parser.next(errs) {
             if let TokenTree::Literal(token) = token {
                 if let Literal::Int(token) = token {
                     token
                 }
                 else {
-                    let srcfile = tokens.srcfile();
-
-                    errs.push(Error::from_messages(token.span(srcfile), [
+                    errs.push(Error::from_messages(token.srcslice(), [
                         errm::expected_found(Self::type_desc(), token.literal_type_desc())
                     ]));
 
-                    Self::default_token(srcfile, token.span(srcfile))
+                    Self::default_token(token.srcslice())
                 }
             }
             else {
-                let srcfile = tokens.srcfile();
-
-                errs.push(Error::from_messages(token.span(srcfile), [
+                errs.push(Error::from_messages(token.srcslice(), [
                     errm::expected_found(Self::type_desc(), token.token_type_desc())
                 ]));
 
-                Self::default_token(srcfile, token.span(srcfile))
+                Self::default_token(token.srcslice())
             }
         }
         else {
-            let srcfile = tokens.srcfile();
-
-            errs.push(Error::from_messages(srcfile.span().end_span(), [
+            errs.push(Error::from_messages(parser.end_srcslice(), [
                 errm::unexpected_end_of_file(),
                 errm::expected(Self::type_desc())
             ]));
-            
-            Self::default_token(srcfile, srcfile.span().end_span())
+
+            Self::default_token(parser.end_srcslice().with_len(0))
         }
     }
 }
 impl<'src> FromRawToken<'src> for IntLiteral<'src> {
-    fn from_raw_token(srcfile: &'src SrcFile<'src>, span: Span, errs: &mut Vec<Error>) -> Self {
-        let srcslice = &srcfile[span];
-
-        let mid = srcslice.s().find(|c: char| c.is_alphabetic()).unwrap_or(srcslice.s().len());
-        let (value_s, suffix_s) = srcslice.s().split_at(mid);
-
+    fn from_raw_token(raw_token: RawToken<'src>, errs: &mut Vec<Error<'src>>) -> Self {
+        let mid = raw_token.srcslice.s().find(|c: char| c.is_alphabetic()).unwrap_or(raw_token.srcslice.s().len());
+        let (value_s, suffix_s) = raw_token.srcslice.s().split_at(mid);
+    
         let value = if let Ok(value) = u128::from_str(value_s) {
             value
         }
         else {
-            errs.push(Error::from_messages(span, [
+            errs.push(Error::from_messages(&raw_token.srcslice, [
                 errm::is_too_large_for_the_literal_capacity(Description::quote(value_s))
             ]));
-
+    
             0
         };
-
+    
         let suffix = match IntSuffix::option_from_str(suffix_s) {
             Ok(suffix) => suffix,
             Err(err) => {
-                errs.push(Error::from_messages(span, [
+                errs.push(Error::from_messages(&raw_token.srcslice, [
                     err
                 ]));
-
+    
                 None
             }
         };
-
+    
         Self {
             value,
             suffix,
-            srcslice,
+            srcslice: raw_token.srcslice,
         }
     }
 }
@@ -159,7 +151,7 @@ pub struct IntSuffix {
     id: u8,
 }
 impl IntSuffix {
-    pub const STRS: [&str; 10] = [
+    pub const STRS: [&'static str; 10] = [
         "u8",
         "u16",
         "u32",

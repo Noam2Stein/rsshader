@@ -34,9 +34,10 @@ impl<'src> TypeDescribe for Ident<'src> {
         Description::new("an ident")
     }
 }
-impl<'src> Spanned for Ident<'src> {
-    fn span(&self, srcfile: &SrcFile) -> Span {
-        self.srcslice.span(srcfile)
+impl<'src> GetSrcSlice<'src> for Ident<'src> {
+    #[inline(always)]
+    fn srcslice(&self) -> &'src SrcSlice {
+        self.srcslice
     }
 }
 impl<'src> FromSrc<'src> for Ident<'src> {
@@ -68,37 +69,33 @@ impl<'src> FromSrcUnchecked<'src> for Ident<'src> {
     }
 }
 impl<'src> DefaultToken<'src> for Ident<'src> {
-    fn default_token(srcfile: &'src SrcFile, span: Span) -> Self {
+    fn default_token(srcslice: &'src SrcSlice) -> Self {
         Self {
-            srcslice: &srcfile[span.with_len(0)]
+            srcslice: &srcslice[0..0]
         }
     }
 }
 impl<'src> ParseTokens<'src> for Ident<'src> {
-    fn parse_tokens(tokens: &mut impl TokenIterator<'src>, errs: &mut Vec<Error>) -> Self {
-        if let Some(token) = tokens.next(errs) {
+    fn parse_tokens(parser: &mut impl TokenParser<'src>, errs: &mut Vec<Error<'src>>) -> Self {
+        if let Some(token) = parser.next(errs) {
             if let TokenTree::Ident(token) = token {
                 token
             }
             else {
-                let srcfile = tokens.srcfile();
-
-                errs.push(Error::from_messages(token.span(srcfile), [
+                errs.push(Error::from_messages(token.srcslice(), [
                     errm::expected_found(Self::type_desc(), token.token_type_desc())
                 ]));
 
-                Self::default_token(srcfile, token.span(srcfile))
+                Self::default_token(token.srcslice())
             }
         }
         else {
-            let srcfile = tokens.srcfile();
-
-            errs.push(Error::from_messages(srcfile.span().end_span(), [
+            errs.push(Error::from_messages(parser.end_srcslice(), [
                 errm::unexpected_end_of_file(),
                 errm::expected(Self::type_desc())
             ]));
 
-            Self::default_token(srcfile, srcfile.span().end_span())
+            Self::default_token(parser.end_srcslice().with_len(0))
         }
     }
 }
