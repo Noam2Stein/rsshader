@@ -6,10 +6,10 @@ use rsshader::{
     tokenization::*,
 };
 
-const SRC: &SrcFile = &SrcFile::new(
+const SRC: &SrcFile = SrcFile::new(
     "
     fn test(a: f32, b: f32) -> f32 {
-        a + b + 5u31
+        a + b + 557895657897689467689676894574596847689467496486778u31
         htnj
         רערע eg
     }
@@ -22,12 +22,11 @@ const SRC: &SrcFile = &SrcFile::new(
 );
 
 fn main() {
-    println!("starting");
     let (output, errs) = {
         let mut errs = Vec::new();
 
         let output = {
-            let stream = tokenize(SRC).collect(&mut errs);
+            let stream = tokenize_collected(SRC, &mut errs);
             
             stream
         };
@@ -36,9 +35,6 @@ fn main() {
 
         (output, errs)
     };
-
-    println!("output created");
-    println!("output: {output}");
     
     let src = format_src(&errs);
 
@@ -101,8 +97,13 @@ fn format_src(errs: &[Error]) -> String {
         let line_str = lines_strs[line];
         let line_str = &line_str[offset.min(line_str.len())..line_str.len()];
 
-        if let Some(err) = errs.iter().find(|err| span_line(err.span) == line) {
-            format!("\x1b[31m{line_label: >3}\x1b[0m\t{line_str}   \x1b[31m// {err}\x1b[0m")
+        if errs.iter().any(|err| span_line(err.span) == line) {
+            let mut output = format!("\x1b[31m{line_label: >3}\x1b[0m\t{line_str}");
+            for err in errs.iter().filter(|err| span_line(err.span) == line) {
+                output += &format!("   \x1b[31m// {err}\x1b[0m");
+            }
+
+            output
         }
         else {
             format!("{line_label: >3}\t{line_str}")

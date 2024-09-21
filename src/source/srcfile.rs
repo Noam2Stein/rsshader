@@ -1,5 +1,3 @@
-use std::{mem, ops::{Index, Range}, slice};
-
 use super::*;
 
 #[repr(transparent)]
@@ -24,12 +22,19 @@ impl SrcFile {
         Span::sized(0, self.s.len())
     }
     #[inline(always)]
+    pub const fn end_span(&self) -> Span {
+        Span::sized(self.s.len(), 0)
+    }
+
+    #[inline(always)]
     pub const fn srcslice(&self) -> &SrcSlice {
         unsafe { mem::transmute(self) }
     }
+}
+impl Display for SrcFile {
     #[inline(always)]
-    pub fn end_srcslice(&self) -> &SrcSlice {
-        unsafe { mem::transmute(&self.s[self.s.len()..self.s.len()]) }
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        self.s.fmt(f)
     }
 }
 impl Index<Span> for SrcFile {
@@ -39,6 +44,18 @@ impl Index<Span> for SrcFile {
         unsafe {
             mem::transmute(&self.s[index.range()])
         }
+    }
+}
+impl Describe for SrcFile {
+    #[inline(always)]
+    fn desc(&self) -> Description {
+        Description::quote(&self.s)
+    }
+}
+impl TypeDescribe for SrcFile {
+    #[inline(always)]
+    fn type_desc() -> Description {
+        Description::new("a srcfile")
     }
 }
 
@@ -52,85 +69,31 @@ impl SrcSlice {
     pub const fn s(&self) -> &str {
         &self.s
     }
-    #[inline(always)]
-    pub const fn start(&self) -> &SrcSliceStart {
-        unsafe {
-            mem::transmute(&self.s.as_bytes()[0])
-        }
-    }
-    #[inline(always)]
-    pub const fn len(&self) -> usize {
-        self.s.len()
-    }
 
-
-    #[inline(always)]
-    pub fn with_len(&self, len: usize) -> &SrcSlice {
-        unsafe {
-            mem::transmute(&self.s[..len])
-        }
-    }
-
-    #[inline(always)]
-    pub fn span_start(&self, srcfile: &SrcFile) -> usize {
-        (&self.s.as_bytes()[0]) as *const u8 as usize - (&srcfile.s.as_bytes()[0]) as *const u8 as usize
-    }
-    #[inline(always)]
     pub fn span(&self, srcfile: &SrcFile) -> Span {
-        Span::sized(
-            self.span_start(srcfile),
-            self.len()
-        )
+        let (srcfile_start, srcfile_len): (usize, usize) = unsafe { mem::transmute(srcfile) };
+        let (start, len): (usize, usize) = unsafe { mem::transmute(self) };
+
+        assert!(start >= srcfile_start && start + len <= srcfile_start + srcfile_len, "srcslice out of srcfile range");
+
+        Span::sized(start - srcfile_start, len)
     }
 }
-impl AsRef<str> for SrcSlice {
+impl Display for SrcSlice {
     #[inline(always)]
-    fn as_ref(&self) -> &str {
-        &self.s
-    }
-}
-impl Index<Range<usize>> for SrcSlice {
-    type Output = Self;
-    fn index(&self, index: Range<usize>) -> &Self::Output {
-        unsafe { mem::transmute(&self.s()[index]) }
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        self.s.fmt(f)
     }
 }
 impl<'src> Describe for SrcSlice {
+    #[inline(always)]
     fn desc(&self) -> Description {
         Description::quote(&self.s)
     }
 }
-
-pub trait GetSrcSlice<'src> {
-    fn srcslice(&self) -> &'src SrcSlice;
-
+impl TypeDescribe for SrcSlice {
     #[inline(always)]
-    fn span(&self, srcfile: &SrcFile) -> Span {
-        self.srcslice().span(srcfile)
-    }
-}
-
-#[repr(transparent)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct SrcSliceStart {
-    inner: u8,
-}
-impl SrcSliceStart {
-    pub const unsafe fn with_len(&self, len: usize) -> &SrcSlice {
-        mem::transmute(slice::from_raw_parts(&self.inner, len))
-    }
-}
-
-mod tests {
-    #[test]
-    fn srcslice_span_conversion() {
-        use super::*;
-
-        let srcfile = SrcFile::new("smg1.5");
-        let span = Span::sized(1, 3);
-        let srcslice = &srcfile[span];
-
-        assert_eq!(srcslice.s(), "mg1");
-        assert_eq!(srcslice.span(srcfile), span)
+    fn type_desc() -> Description {
+        Description::new("a srcslice")
     }
 }

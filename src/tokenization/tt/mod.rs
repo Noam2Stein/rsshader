@@ -12,15 +12,15 @@ pub use group::*;
 
 use super::*;
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Hash, Ord)]
-pub enum TokenTree<'src> {
-    Keyword(Keyword<'src>),
-    Ident(Ident<'src>),
-    Punct(Punct<'src>),
-    Literal(Literal<'src>),
-    Group(Group<'src>),
+#[derive(Debug, Clone, Hash)]
+pub enum TokenTree {
+    Keyword(Keyword),
+    Ident(Ident),
+    Punct(Punct),
+    Literal(Literal),
+    Group(Group),
 }
-impl<'src> TokenTree<'src> {
+impl TokenTree {
     pub fn token_type_desc(&self) -> Description {
         match self {
             Self::Keyword(_) => Keyword::type_desc(),
@@ -31,96 +31,96 @@ impl<'src> TokenTree<'src> {
         }
     }
 }
-impl<'src> Display for TokenTree<'src> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+impl PartialEq for TokenTree {
+    #[inline(always)]
+    fn eq(&self, other: &Self) -> bool {
+        self.span().eq(&other.span())
+    }
+}
+impl Eq for TokenTree {
+    
+}
+impl PartialOrd for TokenTree {
+    #[inline(always)]
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.span().partial_cmp(&other.span())
+    }
+}
+impl Ord for TokenTree {
+    #[inline(always)]
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.span().cmp(&other.span())
+    }
+}
+impl Spanned for TokenTree {
+    fn span(&self) -> Span {
         match self {
-            Self::Keyword(tt) => tt.fmt(f),
-            Self::Ident(tt) => tt.fmt(f),
-            Self::Punct(tt) => tt.fmt(f),
-            Self::Literal(tt) => tt.fmt(f),
-            Self::Group(tt) => tt.fmt(f),
+            Self::Keyword(tt) => tt.span(),
+            Self::Ident(tt) => tt.span(),
+            Self::Punct(tt) => tt.span(),
+            Self::Literal(tt) => tt.span(),
+            Self::Group(tt) => tt.span(),
         }
     }
 }
-impl<'src> GetSrcSlice<'src> for TokenTree<'src> {
-    fn srcslice(&self) -> &'src SrcSlice {
-        match self {
-            Self::Keyword(tt) => tt.srcslice(),
-            Self::Ident(tt) => tt.srcslice(),
-            Self::Punct(tt) => tt.srcslice(),
-            Self::Literal(tt) => tt.srcslice(),
-            Self::Group(tt) => tt.srcslice(),
-        }   
-    }
-}
-impl<'src> Describe for TokenTree<'src> {
-    fn desc(&self) -> Description {
-        match self {
-            Self::Keyword(tt) => tt.desc(),
-            Self::Ident(tt) => tt.desc(),
-            Self::Punct(tt) => tt.desc(),
-            Self::Literal(tt) => tt.desc(),
-            Self::Group(tt) => tt.desc(),
-        }
-    }
-}
-impl<'src> TypeDescribe for TokenTree<'src> {
+impl TypeDescribe for TokenTree {
     fn type_desc() -> Description {
         Description::new("a token tree")
     }
 }
-impl<'src> FromSrc<'src> for TokenTree<'src> {
-    fn from_src(srcslice: &'src SrcSlice) -> Result<Self, ErrorMessage> {
-        todo!()
-    }
-}
-impl<'src> FromSrcUnchecked<'src> for TokenTree<'src> {
-    unsafe fn from_src_unchecked(srcslice: &'src SrcSlice) -> Self {
-        todo!()
-    }
-}
-impl<'src> DefaultToken<'src> for TokenTree<'src> {
-    fn default_token(srcslice: &'src SrcSlice) -> Self {
-        Self::Ident(Ident::default_token(srcslice))
-    }
-}
-impl<'src> ParseTokens<'src> for TokenTree<'src> {
-    fn parse_tokens(tokens: &mut impl TokenParser<'src>, errs: &mut Vec<Error<'src>>) -> Self {
-        if let Some(token) = tokens.next(errs) {
-            token
-        }
-        else {
-            errs.push(Error::from_messages(tokens.end_srcslice(), [
-                errm::unexpected_end_of_file(),
-                errm::expected(Self::type_desc())
-            ]));
-
-            Self::default_token(tokens.end_srcslice().with_len(0))
+impl TokenDisplay for TokenTree {
+    fn tt_to_string(&self, srcfile: &SrcFile) -> String {
+        match self {
+            Self::Keyword(tt) => tt.tt_to_string(srcfile),
+            Self::Ident(tt) => tt.tt_to_string(srcfile),
+            Self::Punct(tt) => tt.tt_to_string(srcfile),
+            Self::Literal(tt) => tt.tt_to_string(srcfile),
+            Self::Group(tt) => tt.tt_to_string(srcfile),
         }
     }
 }
-impl<'src> _ValidatedToken<'src> for TokenTree<'src> {
+impl UnwrapTokenTree for TokenTree {
+    fn unwrap_tt(tt: TokenTree, _errs: &mut Vec<Error>) -> Self {
+        tt
+    }
+}
+impl TokenDefault for TokenTree {
+    fn tt_default(span: Span) -> Self {
+        Self::Ident(Ident::tt_default(span))
+    }
+}
+impl _ValidatedTokenTree for TokenTree {
 
 }
 
-trait DefaultToken<'src> {
-    fn default_token(srcslice: &'src SrcSlice) -> Self;
+pub trait TokenDisplay {
+    fn tt_to_string(&self, srcfile: &SrcFile) -> String;
+}
+impl<T: Display> TokenDisplay for T {
+    fn tt_to_string(&self, _srcfile: &SrcFile) -> String {
+        self.to_string()
+    }
 }
 
-trait _ValidatedToken<'src>:
+pub trait UnwrapTokenTree {
+    fn unwrap_tt(tt: TokenTree, errs: &mut Vec<Error>) -> Self;
+}
+
+trait TokenDefault {
+    fn tt_default(span: Span) -> Self;
+}
+
+trait _ValidatedTokenTree:
 fmt::Debug +
 Clone +
 Eq +
 Ord +
 Hash +
-Display +
-Describe +
 TypeDescribe +
-GetSrcSlice<'src> +
-FromSrc<'src> +
-FromSrcUnchecked<'src> +
-DefaultToken<'src> +
-ParseTokens<'src> +
+Spanned +
+TokenDisplay +
+UnwrapTokenTree +
+TokenDefault +
 {
 
 }

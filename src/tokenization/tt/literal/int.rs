@@ -1,123 +1,37 @@
 use super::*;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct IntLiteral<'src> {
-    pub value: u128,
-    pub suffix: Option<IntSuffix>,
-    srcslice: &'src SrcSlice,
+#[derive(Debug, Clone, Copy, Hash)]
+pub struct IntLiteral {
+    value: u128,
+    suffix: u8,
+    span: Span,
 }
-impl<'src> Display for IntLiteral<'src> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self.suffix {
-            Some(suffixication) => write!(f, "{}{}, ", self.value, suffixication),
-            None => write!(f, "{}", self.value)
+impl IntLiteral {
+    pub fn value(&self) -> u128 {
+        self.value
+    }
+    pub fn suffix(&self) -> Option<IntSuffix> {
+        if self.suffix == 0 {
+            None
         }
-    }
-}
-impl<'src> Describe for IntLiteral<'src> {
-    fn desc(&self) -> Description {
-        Description::quote(&self.to_string())
-    }
-}
-impl<'src> TypeDescribe for IntLiteral<'src> {
-    fn type_desc() -> Description {
-        Description::new("an int literal")
-    }
-}
-impl<'src> GetSrcSlice<'src> for IntLiteral<'src> {
-    fn srcslice(&self) -> &'src SrcSlice {
-        self.srcslice
-    }
-}
-impl<'src> FromSrc<'src> for IntLiteral<'src> {
-    fn from_src(srcslice: &'src SrcSlice) -> Result<Self, ErrorMessage> {
-        let mid = srcslice.s().find(|c: char| c.is_alphabetic()).unwrap_or(srcslice.s().len());
-        let (value_s, suffix_s) = srcslice.s().split_at(mid);
-
-        if value_s.len() == 0 {
-            Err(errm::expected_found(Description::a_whole_number(), Description::an_empty_str()))
-        }
-        else if value_s.chars().any(|c| !c.is_ascii_digit()) {
-            Err(errm::expected_is_not(Description::a_whole_number(), Description::quote(value_s)))
-        }
-        else if let Ok(value) = u128::from_str(value_s) {
-            Ok(
-                Self {
-                    value,
-                    suffix: IntSuffix::option_from_str(suffix_s)?,
-                    srcslice,
+        else {
+            Some(
+                IntSuffix {
+                    id: self.suffix - 1
                 }
             )
         }
-        else {
-            Err(errm::is_too_large_for_the_literal_capacity(Description::quote(value_s)))
-        }
     }
-}
-impl<'src> FromSrcUnchecked<'src> for IntLiteral<'src> {
-    unsafe fn from_src_unchecked(srcslice: &'src SrcSlice) -> Self {
+
+    pub(in crate::tokenization) fn new(srcslice: &SrcSlice, span: Span, errs: &mut Vec<Error>) -> Self {
         let mid = srcslice.s().find(|c: char| c.is_alphabetic()).unwrap_or(srcslice.s().len());
         let (value_s, suffix_s) = srcslice.s().split_at(mid);
-
-        Self {
-            value: u128::from_str(value_s).unwrap(),
-            suffix: IntSuffix::option_from_str(suffix_s).unwrap(),
-            srcslice,
-        }
-    }
-}
-impl<'src> DefaultToken<'src> for IntLiteral<'src> {
-    fn default_token(srcslice: &'src SrcSlice) -> Self {   
-        Self {
-            value: 0,
-            suffix: None,
-            srcslice,
-        }
-    }
-}
-impl<'src> ParseTokens<'src> for IntLiteral<'src> {
-    fn parse_tokens(parser: &mut impl TokenParser<'src>, errs: &mut Vec<Error<'src>>) -> Self {
-        if let Some(token) = parser.next(errs) {
-            if let TokenTree::Literal(token) = token {
-                if let Literal::Int(token) = token {
-                    token
-                }
-                else {
-                    errs.push(Error::from_messages(token.srcslice(), [
-                        errm::expected_found(Self::type_desc(), token.literal_type_desc())
-                    ]));
-
-                    Self::default_token(token.srcslice())
-                }
-            }
-            else {
-                errs.push(Error::from_messages(token.srcslice(), [
-                    errm::expected_found(Self::type_desc(), token.token_type_desc())
-                ]));
-
-                Self::default_token(token.srcslice())
-            }
-        }
-        else {
-            errs.push(Error::from_messages(parser.end_srcslice(), [
-                errm::unexpected_end_of_file(),
-                errm::expected(Self::type_desc())
-            ]));
-
-            Self::default_token(parser.end_srcslice().with_len(0))
-        }
-    }
-}
-impl<'src> FromRawToken<'src> for IntLiteral<'src> {
-    fn from_raw_token(raw_token: RawToken<'src>, errs: &mut Vec<Error<'src>>) -> Self {
-        let mid = raw_token.srcslice.s().find(|c: char| c.is_alphabetic()).unwrap_or(raw_token.srcslice.s().len());
-        let (value_s, suffix_s) = raw_token.srcslice.s().split_at(mid);
     
         let value = if let Ok(value) = u128::from_str(value_s) {
             value
         }
         else {
-            errs.push(Error::from_messages(&raw_token.srcslice, [
+            errs.push(Error::from_messages(span, [
                 errm::is_too_large_for_the_literal_capacity(Description::quote(value_s))
             ]));
     
@@ -125,24 +39,100 @@ impl<'src> FromRawToken<'src> for IntLiteral<'src> {
         };
     
         let suffix = match IntSuffix::option_from_str(suffix_s) {
-            Ok(suffix) => suffix,
+            Ok(suffix) => suffix.map_or(0, |suffix| suffix.id + 1),
             Err(err) => {
-                errs.push(Error::from_messages(&raw_token.srcslice, [
+                errs.push(Error::from_messages(span, [
                     err
                 ]));
     
-                None
+                0
             }
         };
     
         Self {
             value,
             suffix,
-            srcslice: raw_token.srcslice,
+            span,
         }
     }
 }
-impl<'src> _ValidatedToken<'src> for IntLiteral<'src> {
+impl PartialEq for IntLiteral {
+    #[inline(always)]
+    fn eq(&self, other: &Self) -> bool {
+        self.span.eq(&other.span)
+    }
+}
+impl Eq for IntLiteral {
+    
+}
+impl PartialOrd for IntLiteral {
+    #[inline(always)]
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.span.partial_cmp(&other.span)
+    }
+}
+impl Ord for IntLiteral {
+    #[inline(always)]
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.span.cmp(&other.span)
+    }
+}
+impl Display for IntLiteral {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self.suffix() {
+            Some(suffix) => write!(f, "{}{}, ", self.value, suffix),
+            None => write!(f, "{}", self.value)
+        }
+    }
+}
+impl Describe for IntLiteral {
+    fn desc(&self) -> Description {
+        Description::quote(&self.to_string())
+    }
+}
+impl TypeDescribe for IntLiteral {
+    fn type_desc() -> Description {
+        Description::new("an int literal")
+    }
+}
+impl Spanned for IntLiteral {
+    fn span(&self) -> Span {
+        self.span
+    }
+}
+impl UnwrapTokenTree for IntLiteral {
+    fn unwrap_tt(tt: TokenTree, errs: &mut Vec<Error>) -> Self {
+        if let TokenTree::Literal(tt) = tt {
+            if let Literal::Int(tt) = tt {
+                tt
+            }
+            else {
+                errs.push(Error::from_messages(tt.span(), [
+                    errm::expected_found(Self::type_desc(), tt.literal_type_desc())
+                ]));
+
+                Self::tt_default(tt.span())
+            }
+        }
+        else {
+            errs.push(Error::from_messages(tt.span(), [
+                errm::expected_found(Self::type_desc(), tt.token_type_desc())
+            ]));
+
+            Self::tt_default(tt.span())
+        }
+    }
+}
+impl TokenDefault for IntLiteral {
+    fn tt_default(span: Span) -> Self {
+        Self {
+            value: 0,
+            suffix: 0,
+            span,
+        }
+    }
+}
+impl _ValidatedTokenTree for IntLiteral {
     
 }
 

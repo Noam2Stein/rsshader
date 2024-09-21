@@ -1,16 +1,16 @@
 use super::*;
 
 pub trait TokenParser<'src>: Sized {
-    fn next(&mut self, errs: &mut Vec<Error>) -> Option<TokenTree<'src>>;
+    fn next(&mut self, errs: &mut Vec<Error<'src>>) -> Option<TokenTree<'src>>;
     fn end_srcslice(&self) -> &'src SrcSlice;
 
-    fn collect(mut self, errs: &mut Vec<Error>) -> Vec<TokenTree<'src>> {
+    fn collect(mut self, errs: &mut Vec<Error<'src>>) -> Vec<TokenTree<'src>> {
         let mut tokens = Vec::new();
         while let Some(token) = self.next(errs) {
             tokens.push(token);
         }
 
-        tokens.into()
+        tokens
     }
 
     #[inline(always)]

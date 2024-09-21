@@ -1,7 +1,8 @@
 use super::*;
 
+#[inline(always)]
 pub fn tokenize<'src>(srcfile: &'src SrcFile) -> Tokenizer<'src> {
-    Tokenizer::new(srcfile, srcfile.span())
+    Tokenizer::new(srcfile)
 }
 
 #[repr(transparent)]
@@ -10,19 +11,21 @@ pub struct Tokenizer<'src> {
 }
 impl<'src> Tokenizer<'src> {
     #[inline(always)]
-    pub fn new(srcfile: &'src SrcFile, span: Span) -> Self {
+    pub fn new(srcfile: &'src SrcFile) -> Self {
         Self {
-            raw: RawTokenizer::new(srcfile, span),
+            raw: RawTokenizer::new(srcfile),
         }
     }
-}
-impl<'src> TokenParser<'src> for Tokenizer<'src> {
-    fn next(&mut self, errs: &mut Vec<Error>) -> Option<TokenTree<'src>> {
-        match read_raw_token(self.srcfile(), errs, &mut self.raw) {
-            ReadRawTokenOutput::GroupClose(raw_token) => {
-                let close_delimiter = Delimiter::from_close_str(raw_token.s()).unwrap();
+
+    pub fn srcfile(&self) -> &'src SrcFile {
+        &self.raw.srcfile()
+    }
+    pub fn next(&mut self, errs: &mut Vec<Error>) -> Option<TokenTree> {
+        match read_raw_token(self.raw.srcfile(), errs, &mut self.raw) {
+            ReadRawTokenOutput::GroupClose(span) => {
+                let close_delimiter = Delimiter::from_close_str(self.srcfile()[span].s()).unwrap();
                 
-                errs.push(Error::from_messages(raw_token.span(self.srcfile()), [
+                errs.push(Error::from_messages(span, [
                     ErrorMessage::Problem(format!("closing delimiter without a group to close")),
                     errm::unmatched_delimiter(close_delimiter.open_desc()),
                     errm::expected(close_delimiter.close_desc()),
@@ -38,92 +41,90 @@ impl<'src> TokenParser<'src> for Tokenizer<'src> {
             }
         }
     }
-    fn srcfile(&self) -> &'src SrcFile {
-        &self.raw.srcfile()
+    pub fn collect(mut self, errs: &mut Vec<Error>) -> Vec<TokenTree> {
+        let mut tokens = Vec::new();
+        while let Some(token) = self.next(errs) {
+            tokens.push(token);
+        }
+
+        tokens
     }
 }
 
-enum ReadRawTokenOutput<'src> {
-    GroupClose(&'src SrcSlice),
-    TokenTree(TokenTree<'src>),
+enum ReadRawTokenOutput {
+    GroupClose(Span),
+    TokenTree(TokenTree),
     None,
 }
 
-fn read_raw_token<'src>(srcfile: &'src SrcFile, errs: &mut Vec<Error>, raw_tokens: &mut RawTokenizer<'src>) -> ReadRawTokenOutput<'src> {
-    if let Some(raw_token) = raw_tokens.next() {
-        match raw_token.ty {
-            RawTokenType::Ident =>
-            if let Ok(keyword) = Keyword::from_src(raw_token.srcslice) {
-                ReadRawTokenOutput::TokenTree(
-                    TokenTree::Keyword(keyword)
+fn read_raw_token<'src>(srcfile: &'src SrcFile, errs: &mut Vec<Error>, raw_tokens: &mut RawTokenizer<'src>) -> ReadRawTokenOutput {
+    if let Some(RawToken { span, ty }) = raw_tokens.next() {
+        let srcslice = &srcfile[span];
+        match ty {
+            RawTokenType::Ident => ReadRawTokenOutput::TokenTree(
+                Keyword::new(srcslice, span).map_or_else(
+                    || TokenTree::Ident(Ident::new(span)),
+                    |keyword| TokenTree::Keyword(keyword)
                 )
-            }
-            else {
-                ReadRawTokenOutput::TokenTree(
-                    TokenTree::Ident(unsafe { Ident::from_src_unchecked(raw_token.srcslice) })
-                )
-            },
+            ),
             RawTokenType::IntLiteral => ReadRawTokenOutput::TokenTree(
-                TokenTree::Literal(Literal::Int(
-                    IntLiteral::from_raw_token(raw_token, errs)
-                ))
+                TokenTree::Literal(Literal::Int(IntLiteral::new(srcslice, span, errs)))
             ),
             RawTokenType::FloatLiteral => ReadRawTokenOutput::TokenTree(
-                TokenTree::Literal(Literal::Float(
-                    FloatLiteral::from_raw_token(raw_token, errs)
-                ))
+                TokenTree::Literal(Literal::Float(FloatLiteral::new(srcslice, span, errs)))
             ),
             RawTokenType::Punct => ReadRawTokenOutput::TokenTree(
-                TokenTree::Punct(Punct::from_raw_token(raw_token, errs))
+                TokenTree::Punct(Punct::new(srcslice, span))
             ),
             RawTokenType::GroupOpen => {
-                let delimiter = Delimiter::from_open_str(raw_token.srcslice.s()).unwrap();
+                let delimiter = Delimiter::from_open_str(srcslice.s()).unwrap();
             
-                let mut group_tts = Vec::new();
+                let mut group_tts = Vec::<TokenTree>::new();
                 loop {
                     match read_raw_token(srcfile, errs, raw_tokens) {
-                        ReadRawTokenOutput::GroupClose(raw_token) => {
-                            let srcslice = &srcfile[raw_token.span];
-                            let close_delimiter = Delimiter::from_close_str(srcslice.s()).unwrap();
-
-                            let stream = TokenStream::from(group_tts);
-                            let srcslice = &srcfile[
-                                match stream.span(srcfile) {
-                                    Some(stream_span) => raw_token.span.connect(&stream_span),
-                                    None => raw_token.span,
-                                }
-                            ];
-
-                            if close_delimiter != delimiter {
-                                errs.push(Error::from_messages(raw_token.span, [
+                        ReadRawTokenOutput::GroupClose(close_span) => {
+                            let close_srcslice = &srcfile[close_span];
+                            let close_delimiter = Delimiter::from_close_str(close_srcslice.s()).unwrap();
+                            
+                            let group_srcslice = if close_delimiter == delimiter {
+                                span.connect(&close_span)
+                            }
+                            else {
+                                errs.push(Error::from_messages(close_span, [
                                     errm::unmatched_delimiter(delimiter.open_desc()),
                                     errm::expected_found(delimiter.close_desc(), close_delimiter.close_desc())
                                 ]));
-                            }
+
+                                group_tts.last().map_or(span, |last_tt| span.connect(&last_tt.span()))
+                            };
 
                             break ReadRawTokenOutput::TokenTree(TokenTree::Group(
-                                Group {
-                                    delimiter,
-                                    srcslice,
-                                    stream,
-                                }
+                                Group::new(delimiter, group_tts, group_srcslice)
                             ));
                         }
                         ReadRawTokenOutput::TokenTree(tt) => {
                             group_tts.push(tt);
                         }
                         ReadRawTokenOutput::None => {
+                            errs.push(Error::from_messages(srcfile.end_span(), [
+                                errm::unmatched_delimiter(delimiter.open_desc()),
+                                errm::unexpected_end_of_file(),
+                                errm::expected(delimiter.close_desc())
+                            ]));
 
+                            break ReadRawTokenOutput::TokenTree(TokenTree::Group(
+                                Group::new(delimiter, group_tts, span.connect(&srcfile.end_span()))
+                            ));
                         }
                     }
                 }
             }
             RawTokenType::GroupClose => {
-                ReadRawTokenOutput::GroupClose(raw_token)
+                ReadRawTokenOutput::GroupClose(span)
             }
             RawTokenType::Invalid => {
-                errs.push(Error::from_messages(raw_token.span, [
-                    errm::is_not(Description::quote(srcfile[raw_token.span].s()), RawToken::type_desc())
+                errs.push(Error::from_messages(span, [
+                    errm::is_not(Description::quote(srcslice.s()), RawToken::type_desc())
                 ]));
     
                 read_raw_token(srcfile, errs, raw_tokens)

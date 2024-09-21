@@ -5,12 +5,12 @@ mod float;
 pub use int::*;
 pub use float::*;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum Literal<'src> {
-    Int(IntLiteral<'src>),
-    Float(FloatLiteral<'src>),
+#[derive(Debug, Clone, Copy, Hash)]
+pub enum Literal {
+    Int(IntLiteral),
+    Float(FloatLiteral),
 }
-impl<'src> Literal<'src> {
+impl Literal {
     pub fn literal_type_desc(&self) -> Description {
         match self {
             Self::Int(_) => IntLiteral::type_desc(),
@@ -18,84 +18,69 @@ impl<'src> Literal<'src> {
         }
     }
 }
-impl<'src> Display for Literal<'src> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Int(literal) => literal.fmt(f),
-            Self::Float(literal) => literal.fmt(f),
-        }
+impl PartialEq for Literal {
+    #[inline(always)]
+    fn eq(&self, other: &Self) -> bool {
+        self.span().eq(&other.span())
     }
 }
-impl<'src> Describe for Literal<'src> {
-    fn desc(&self) -> Description {
-        match self {
-            Self::Int(literal) => literal.desc(),
-            Self::Float(literal) => literal.desc(),
-        }
+impl Eq for Literal {
+    
+}
+impl PartialOrd for Literal {
+    #[inline(always)]
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.span().partial_cmp(&other.span())
     }
 }
-impl<'src> TypeDescribe for Literal<'src> {
+impl Ord for Literal {
+    #[inline(always)]
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.span().cmp(&other.span())
+    }
+}
+impl TypeDescribe for Literal {
+    #[inline(always)]
     fn type_desc() -> Description {
         Description::new("a literal")
     }
 }
-impl<'src> GetSrcSlice<'src> for Literal<'src> {
-    fn srcslice(&self) -> &'src SrcSlice {
+impl Spanned for Literal {
+    fn span(&self) -> Span {
         match self {
-            Self::Int(literal) => literal.srcslice(),
-            Self::Float(literal) => literal.srcslice(),
+            Self::Int(literal) => literal.span(),
+            Self::Float(literal) => literal.span(),
         }
     }
 }
-impl<'src> FromSrc<'src> for Literal<'src> {
-    fn from_src(srcslice: &'src SrcSlice) -> Result<Self, ErrorMessage> {
-        if srcslice.s().contains(".") {
-            FloatLiteral::from_src(srcslice).map(|literal| Self::Float(literal))
+impl TokenDisplay for Literal {
+    fn tt_to_string(&self, srcfile: &SrcFile) -> String {
+        match self {
+            Self::Int(literal) => literal.tt_to_string(srcfile),
+            Self::Float(literal) => literal.tt_to_string(srcfile),
+        } 
+    }
+}
+impl UnwrapTokenTree for Literal {
+    fn unwrap_tt(tt: TokenTree, errs: &mut Vec<Error>) -> Self {
+        if let TokenTree::Literal(tt) = tt {
+            tt
         }
         else {
-            IntLiteral::from_src(srcslice).map(|literal| Self::Int(literal))
-        }
-    }
-}
-impl<'src> FromSrcUnchecked<'src> for Literal<'src> {
-    unsafe fn from_src_unchecked(srcslice: &'src SrcSlice) -> Self {
-        if srcslice.s().contains(".") {
-            Self::Float(FloatLiteral::from_src_unchecked(srcslice))
-        }
-        else {
-            Self::Int(IntLiteral::from_src_unchecked(srcslice))
-        }
-    }
-}
-impl<'src> DefaultToken<'src> for Literal<'src> {
-    fn default_token(srcslice: &'src SrcSlice) -> Self {
-        Self::Int(IntLiteral::default_token(srcslice))
-    }
-}
-impl<'src> ParseTokens<'src> for Literal<'src> {
-    fn parse_tokens(parser: &mut impl TokenParser<'src>, errs: &mut Vec<Error<'src>>) -> Self {
-        if let Some(token) = parser.next(errs) {
-            if let TokenTree::Literal(tokens) = token {
-                tokens
-            }
-            else {
-                errs.push(Error::from_messages(token.srcslice(), [
-                    errm::expected_found(Self::type_desc(), token.token_type_desc())
-                ]));
-
-                Self::default_token(token.srcslice())
-            }
-        }
-        else {
-            errs.push(Error::from_messages(parser.end_srcslice(), [
-                errm::unexpected_end_of_file(),
-                errm::expected(Self::type_desc())
+            errs.push(Error::from_messages(tt.span(), [
+                errm::expected_found(Self::type_desc(), tt.token_type_desc())
             ]));
 
-            Self::default_token(parser.end_srcslice().with_len(0))
+            Self::tt_default(tt.span())
         }
     }
 }
-impl<'src> _ValidatedToken<'src> for Literal<'src> {
+impl TokenDefault for Literal {
+    #[inline(always)]
+    fn tt_default(span: Span) -> Self {
+        Self::Int(IntLiteral::tt_default(span))
+    }
+}
+impl _ValidatedTokenTree for Literal {
     
 }

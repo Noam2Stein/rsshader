@@ -1,11 +1,11 @@
 use super::*;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Punct<'src> {
+#[derive(Debug, Clone, Copy, Hash)]
+pub struct Punct {
     id: u8,
-    start: &'src SrcSliceStart,
+    span_start: usize,
 }
-impl<'src> Punct<'src> {
+impl Punct {
     pub const STRS: &'static [&'static str] = &[
         "`",
         "~",
@@ -54,98 +54,84 @@ impl<'src> Punct<'src> {
     pub const fn s(&self) -> &'static str {
         Self::STRS[self.id as usize]
     }
+
+    #[inline(always)]
+    pub(in crate::tokenization) fn new(srcslice: &SrcSlice, span: Span) -> Self {
+        let position = Self::STRS.iter().position(|keyword| srcslice.s() == *keyword).unwrap();
+        Self {
+            id: position as u8,
+            span_start: span.start(),
+        }
+    }
 }
-impl<'src> Display for Punct<'src> {
+impl PartialEq for Punct {
+    #[inline(always)]
+    fn eq(&self, other: &Self) -> bool {
+        self.span_start.eq(&other.span_start)
+    }
+}
+impl Eq for Punct {
+    
+}
+impl PartialOrd for Punct {
+    #[inline(always)]
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.span_start.partial_cmp(&other.span_start)
+    }
+}
+impl Ord for Punct {
+    #[inline(always)]
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.span_start.cmp(&other.span_start)
+    }
+}
+impl Display for Punct {
     #[inline(always)]
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         self.s().fmt(f)
     }
 }
-impl<'src> Describe for Punct<'src> {
+impl Describe for Punct {
     #[inline(always)]
     fn desc(&self) -> Description {
         Description::quote(self.s())
     }
 }
-impl<'src> TypeDescribe for Punct<'src> {
+impl TypeDescribe for Punct {
     #[inline(always)]
     fn type_desc() -> Description {
-        Description::new("a punct")
+        Description::new("a keyword")
     }
 }
-impl<'src> GetSrcSlice<'src> for Punct<'src> {
-    fn srcslice(&self) -> &'src SrcSlice {
-        unsafe {
-            self.start.with_len(self.s().len())
-        }
+impl Spanned for Punct {
+    #[inline(always)]
+    fn span(&self) -> Span {
+        Span::sized(self.span_start, self.s().len())
     }
 }
-impl<'src> FromSrc<'src> for Punct<'src> {
-    fn from_src(srcslice: &'src SrcSlice) -> Result<Self, ErrorMessage> {
-        if let Some(position) = Self::STRS.iter().position(|keyword| srcslice.s() == *keyword) {
-            Ok(
-                Self {
-                    id: position as u8,
-                    start: &srcslice.start()
-                }
-            )
+impl UnwrapTokenTree for Punct {
+    fn unwrap_tt(tt: TokenTree, errs: &mut Vec<Error>) -> Self {
+        if let TokenTree::Punct(tt) = tt {
+            tt
         }
         else {
-            Err(errm::expected_is_not(Self::type_desc(), srcslice.desc()))
-        }
-    }
-}
-impl<'src> FromSrcUnchecked<'src> for Punct<'src> {
-    unsafe fn from_src_unchecked(srcslice: &'src SrcSlice) -> Self {
-        Self::from_src(srcslice).unwrap()
-    }
-}
-impl<'src> DefaultToken<'src> for Punct<'src> {
-    fn default_token(srcslice: &'src SrcSlice) -> Self {
-        Self {
-            id: 0,
-            start: &srcslice.start()
-        }
-    }
-}
-impl<'src> ParseTokens<'src> for Punct<'src> {
-    fn parse_tokens(parser: &mut impl TokenParser<'src>, errs: &mut Vec<Error<'src>>) -> Self {
-        if let Some(token) = parser.next(errs) {
-            if let TokenTree::Punct(token) = token {
-                token
-            }
-            else {
-                errs.push(Error::from_messages(token.srcslice(), [
-                    errm::expected_found(Self::type_desc(), token.token_type_desc())
-                ]));
-
-                Self::default_token(token.srcslice())
-            }
-        }
-        else {
-            errs.push(Error::from_messages(parser.end_srcslice(), [
-                errm::unexpected_end_of_file(),
-                errm::expected(Self::type_desc())
+            errs.push(Error::from_messages(tt.span(), [
+                errm::expected_found(Self::type_desc(), tt.token_type_desc())
             ]));
 
-            Self::default_token(parser.end_srcslice().with_len(0))
+            Self::tt_default(tt.span())
         }
     }
 }
-impl<'src> FromRawToken<'src> for Punct<'src> {
-    fn from_raw_token(raw_token: RawToken<'src>, errs: &mut Vec<Error<'src>>) -> Self {
-        match Self::from_src(&raw_token.srcslice) {
-            Ok(punct) => punct,
-            Err(err) => {
-                errs.push(Error::from_messages(&raw_token.srcslice, [
-                    err
-                ]));
-
-                Self::default_token(&raw_token.srcslice)
-            }
+impl TokenDefault for Punct {
+    #[inline(always)]
+    fn tt_default(span: Span) -> Self {
+        Self {
+            id: 0,
+            span_start: span.start()
         }
     }
 }
-impl<'src> _ValidatedToken<'src> for Punct<'src> {
+impl _ValidatedTokenTree for Punct {
     
 }

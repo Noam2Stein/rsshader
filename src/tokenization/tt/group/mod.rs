@@ -3,150 +3,94 @@ use super::*;
 mod delimiter;
 pub use delimiter::*;
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Group<'src> {
+#[derive(Debug, Clone, Hash)]
+pub struct Group {
     delimiter: Delimiter,
-    tts: Vec<TokenTree<'src>>,
-    srcslice: &'src SrcSlice,
+    tts: Vec<TokenTree>,
+    span: Span,
 }
-impl<'src> Group<'src> {
-    pub fn parse_tokens_with(delimiter: Delimiter, parser: &mut impl TokenParser<'src>, errs: &mut Vec<Error<'src>>) -> Self {
-        if let Some(token) = parser.next(errs) {
-            if let TokenTree::Group(token) = token {
-                if token.delimiter != delimiter {
-                    errs.push(Error::from_messages(token.srcslice, [
-                        errm::expected_found(Self::type_desc().with(&delimiter.desc()), Self::type_desc().with(&token.delimiter.desc()))
-                    ]));
-                }
-                
-                token
-            }
-            else {
-                errs.push(Error::from_messages(token.srcslice(), [
-                    errm::expected_found(Self::type_desc(), token.token_type_desc())
-                ]));
-
-                Self::default_token(token.srcslice())
-            }
-        }
-        else {
-            errs.push(Error::from_messages(parser.end_srcslice(), [
-                errm::unexpected_end_of_file(),
-                errm::expected(Self::type_desc())
-            ]));
-
-            Self::default_token(parser.end_srcslice().with_len(0))
-        }
-    }
-
+impl Group {
     #[inline(always)]
-    pub fn open_span(&self, srcfile: &'src SrcFile) -> Span {
-        self.span(srcfile).first_byte()
+    pub fn open_span(&self) -> Span {
+        self.span.first_byte()
     }
     #[inline(always)]
-    pub fn close_span(&self, srcfile: &'src SrcFile) -> Span {
-        self.span(srcfile).last_byte()
+    pub fn close_span(&self) -> Span {
+        self.span.last_byte()
+    }
+
+    pub(in crate::tokenization) fn new(delimiter: Delimiter, tts: Vec<TokenTree>, span: Span) -> Self {
+        Self {
+            delimiter,
+            tts,
+            span,
+        }
     }
 }
-impl<'src> Display for Group<'src> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{} {} {}",
-            self.delimiter.open_str(),
-            self.tts.iter().map(|tt| tt.to_string()).collect::<Box<[String]>>().join(" "),
-            self.delimiter.close_str(),
-        )
+impl PartialEq for Group {
+    #[inline(always)]
+    fn eq(&self, other: &Self) -> bool {
+        self.span.eq(&other.span)
     }
 }
-impl<'src> GetSrcSlice<'src> for Group<'src> {
-    fn srcslice(&self) -> &'src SrcSlice {
-        self.srcslice
+impl Eq for Group {
+    
+}
+impl PartialOrd for Group {
+    #[inline(always)]
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.span.partial_cmp(&other.span)
     }
 }
-impl<'src> Describe for Group<'src> {
-    fn desc(&self) -> Description {
-        Description::quote(&self.to_string())
+impl Ord for Group {
+    #[inline(always)]
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.span.cmp(&other.span)
     }
 }
-impl<'src> TypeDescribe for Group<'src> {
+impl Spanned for Group {
+    fn span(&self) -> Span {
+        self.span
+    }
+}
+impl TypeDescribe for Group {
     fn type_desc() -> Description {
         Description::new("a group")
     }
 }
-impl<'src> FromSrc<'src> for Group<'src> {
-    fn from_src(srcslice: &'src SrcSlice) -> Result<Self, ErrorMessage> {
-        todo!()
+impl TokenDisplay for Group {
+    fn tt_to_string(&self, srcfile: &SrcFile) -> String {
+        format!(
+            "{} {} {}",
+            self.delimiter.open_str(),
+            self.tts.iter().map(|tt| tt.tt_to_string(srcfile)).collect::<Box<[String]>>().join(" "),
+            self.delimiter.close_str(),
+        )
     }
 }
-impl<'src> FromSrcUnchecked<'src> for Group<'src> {
-    unsafe fn from_src_unchecked(srcslice: &'src SrcSlice) -> Self {
-        todo!()
+impl UnwrapTokenTree for Group {
+    fn unwrap_tt(tt: TokenTree, errs: &mut Vec<Error>) -> Self {
+        if let TokenTree::Group(tt) = tt {
+            tt
+        }
+        else {
+            errs.push(Error::from_messages(tt.span(), [
+                errm::expected_found(Self::type_desc(), tt.token_type_desc())
+            ]));
+
+            Self::tt_default(tt.span())
+        }
     }
 }
-impl<'src> DefaultToken<'src> for Group<'src> {
-    fn default_token(srcslice: &'src SrcSlice) -> Self {
+impl TokenDefault for Group {
+    fn tt_default(span: Span) -> Self {
         Self {
             delimiter: Delimiter::Brace,
             tts: Vec::new(),
-            srcslice,
+            span,
         }
     }
 }
-impl<'src> ParseTokens<'src> for Group<'src> {
-    fn parse_tokens(parser: &mut impl TokenParser<'src>, errs: &mut Vec<Error<'src>>) -> Self {
-        if let Some(token) = parser.next(errs) {
-            if let TokenTree::Group(token) = token {
-                token
-            }
-            else {
-                errs.push(Error::from_messages(token.srcslice(), [
-                    errm::expected_found(Self::type_desc(), token.token_type_desc())
-                ]));
-
-                Self::default_token(token.srcslice())
-            }
-        }
-        else {
-            errs.push(Error::from_messages(parser.end_srcslice(), [
-                errm::unexpected_end_of_file(),
-                errm::expected(Self::type_desc())
-            ]));
-
-            Self::default_token(parser.end_srcslice().with_len(0))
-        }
-    }
-}
-impl<'src> _ValidatedToken<'src> for Group<'src> {
+impl _ValidatedTokenTree for Group {
 
 }
-
-macro_rules! group_with {
-    ($ident:ident: $delimiter:expr) => {
-        #[repr(transparent)]
-        pub struct $ident<'src> {
-            group: Group<'src>,
-        }
-        impl<'src> $ident<'src> {
-            pub fn group(self) -> Group<'src> {
-                self.group
-            }
-        }
-        impl<'src> From<$ident<'src>> for Group<'src> {
-            fn from(value: $ident<'src>) -> Self {
-                value.group
-            }
-        }
-        impl<'src> ParseTokens<'src> for $ident<'src> {
-            fn parse_tokens(parser: &mut impl TokenParser<'src>, errs: &mut Vec<Error<'src>>) -> Self {
-                unsafe {
-                    mem::transmute(Group::parse_tokens_with($delimiter, parser, errs))
-                }
-            }
-        }
-    };
-}
-
-group_with!(GroupWithBraces: Delimiter::Brace);
-group_with!(GroupWithBrackets: Delimiter::Bracket);
-group_with!(GroupWithParenthesis: Delimiter::Parenthesis);

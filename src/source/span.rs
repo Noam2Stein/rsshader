@@ -1,4 +1,4 @@
-use std::{hash::Hash, ops::Range};
+use super::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct Span {
@@ -94,5 +94,22 @@ impl From<Range<usize>> for Span {
 impl From<Span> for Range<usize> {
     fn from(value: Span) -> Self {
         value.range()
+    }
+}
+
+pub trait Spanned {
+    fn span(&self) -> Span;
+
+    fn srcslice<'src>(&self, srcfile: &'src SrcFile) -> &'src SrcSlice {
+        &srcfile[self.span()]
+    }
+    fn src_fmt(&self, srcfile: &SrcFile, f: &mut Formatter) -> fmt::Result {
+        self.srcslice(srcfile).fmt(f)
+    }
+    fn src_to_string(&self, srcfile: &SrcFile) -> String {
+        self.srcslice(srcfile).to_string()
+    }
+    fn src_desc(&self, srcfile: &SrcFile) -> Description {
+        self.srcslice(srcfile).desc()
     }
 }

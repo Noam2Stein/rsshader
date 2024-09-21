@@ -1,11 +1,11 @@
 use super::*;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Keyword<'src> {
+#[derive(Debug, Clone, Copy, Hash)]
+pub struct Keyword {
     id: u8,
-    start: &'src SrcSliceStart,
+    span_start: usize,
 }
-impl<'src> Keyword<'src> {
+impl Keyword {
     pub const STRS: &'static [&'static str] = &[
         "pub",
         "const",
@@ -30,85 +30,85 @@ impl<'src> Keyword<'src> {
     pub const fn s(&self) -> &'static str {
         Self::STRS[self.id as usize]
     }
+
+    #[inline(always)]
+    pub(in crate::tokenization) fn new(srcslice: &SrcSlice, span: Span) -> Option<Self> {
+        Self::STRS.iter().position(|keyword| srcslice.s() == *keyword).map(|position|
+            Self {
+                id: position as u8,
+                span_start: span.start(),
+            }
+        )
+    }
 }
-impl<'src> Display for Keyword<'src> {
+impl PartialEq for Keyword {
+    #[inline(always)]
+    fn eq(&self, other: &Self) -> bool {
+        self.span_start.eq(&other.span_start)
+    }
+}
+impl Eq for Keyword {
+    
+}
+impl PartialOrd for Keyword {
+    #[inline(always)]
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.span_start.partial_cmp(&other.span_start)
+    }
+}
+impl Ord for Keyword {
+    #[inline(always)]
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.span_start.cmp(&other.span_start)
+    }
+}
+impl Display for Keyword {
     #[inline(always)]
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         self.s().fmt(f)
     }
 }
-impl<'src> Describe for Keyword<'src> {
+impl Describe for Keyword {
     #[inline(always)]
     fn desc(&self) -> Description {
         Description::quote(self.s())
     }
 }
-impl<'src> TypeDescribe for Keyword<'src> {
+impl TypeDescribe for Keyword {
     #[inline(always)]
     fn type_desc() -> Description {
         Description::new("a keyword")
     }
 }
-impl<'src> GetSrcSlice<'src> for Keyword<'src> {
+impl Spanned for Keyword {
     #[inline(always)]
-    fn srcslice(&self) -> &'src SrcSlice {
-        unsafe {
-            self.start.with_len(self.s().len())
-        }
+    fn span(&self) -> Span {
+        Span::sized(self.span_start, self.s().len())
     }
 }
-impl<'src> FromSrc<'src> for Keyword<'src> {
-    fn from_src(srcslice: &'src SrcSlice) -> Result<Self, ErrorMessage> {
-        if let Some(position) = Self::STRS.iter().position(|keyword| srcslice.s() == *keyword) {
-            Ok(
-                Self {
-                    id: position as u8,
-                    start: &srcslice.start()
-                }
-            )
+impl UnwrapTokenTree for Keyword {
+    fn unwrap_tt(tt: TokenTree, errs: &mut Vec<Error>) -> Self {
+        if let TokenTree::Keyword(tt) = tt {
+            tt
         }
         else {
-            Err(errm::expected_is_not(Self::type_desc(), srcslice.desc()))
-        }
-    }
-}
-impl<'src> FromSrcUnchecked<'src> for Keyword<'src> {
-    unsafe fn from_src_unchecked(srcslice: &'src SrcSlice) -> Self {
-        Self::from_src(srcslice).unwrap()
-    }
-}
-impl<'src> DefaultToken<'src> for Keyword<'src> {
-    fn default_token(srcslice: &'src SrcSlice) -> Self {
-        Self {
-            id: 0,
-            start: &srcslice.start()
-        }
-    }
-}
-impl<'src> ParseTokens<'src> for Keyword<'src> {
-    fn parse_tokens(parser: &mut impl TokenParser<'src>, errs: &mut Vec<Error<'src>>) -> Self {
-        if let Some(token) = parser.next(errs) {
-            if let TokenTree::Keyword(token) = token {
-                token
-            }
-            else {
-                errs.push(Error::from_messages(token.srcslice(), [
-                    errm::expected_found(Self::type_desc(), token.token_type_desc())
-                ]));
-
-                Self::default_token(token.srcslice())
-            }
-        }
-        else {
-            errs.push(Error::from_messages(parser.end_srcslice(), [
-                errm::unexpected_end_of_file(),
-                errm::expected(Self::type_desc())
+            errs.push(Error::from_messages(tt.span(), [
+                errm::expected_found(Self::type_desc(), tt.token_type_desc())
             ]));
 
-            Self::default_token(parser.end_srcslice().with_len(0))
+            Self::tt_default(tt.span())
         }
     }
 }
-impl<'src> _ValidatedToken<'src> for Keyword<'src> {
+impl TokenDefault for Keyword {
+    #[inline(always)]
+    fn tt_default(span: Span) -> Self {
+        Self {
+            id: 0,
+            span_start: span.start()
+        }
+    }
+}
+impl _ValidatedTokenTree for Keyword {
     
 }

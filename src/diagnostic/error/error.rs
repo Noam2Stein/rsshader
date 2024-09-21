@@ -1,15 +1,13 @@
-use std::fmt::{self, Display, Formatter};
-
 use super::*;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Error<'src> {
-    pub srcslice: &'src SrcSlice,
+pub struct Error {
+    pub span: Span,
     pub problems: Box<[String]>,
     pub help: Box<[String]>,
 }
-impl<'src> Error<'src> {
-    pub fn from_messages(srcslice: &'src SrcSlice, messages: impl IntoIterator<Item = ErrorMessage>) -> Self {
+impl Error {
+    pub fn from_messages(span: Span, messages: impl IntoIterator<Item = ErrorMessage>) -> Self {
         let mut problems = Vec::new();
         let mut help = Vec::new();
         
@@ -21,7 +19,7 @@ impl<'src> Error<'src> {
         }
 
         Self {
-            srcslice,
+            span,
             problems: problems.into_boxed_slice(),
             help: help.into_boxed_slice(),
         }
@@ -44,13 +42,18 @@ impl<'src> Error<'src> {
         output
     }
 }
-impl<'src> Display for Error<'src> {
+impl Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.problems.join(". "))
     }
 }
-impl<'src> std::error::Error for Error<'src> {
+impl std::error::Error for Error {
 
+}
+impl Spanned for Error {
+    fn span(&self) -> Span {
+        self.span
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
