@@ -24,9 +24,14 @@ impl Spanned for Ident {
         self.span
     }
 }
-impl TokenDisplay for Ident {
-    fn tt_to_string(&self, srcfile: &SrcFile) -> String {
-        srcfile[self.span].s().to_string()
+impl DisplayWithSrc for Ident {
+    fn fmt_with_src(&self, f: &mut Formatter, srcfile: &SrcFile) -> fmt::Result {
+        if self.span.len() > 0 {
+            srcfile[self.span].s().fmt(f)
+        }
+        else {
+            write!(f, "___")
+        }
     }
 }
 impl UnwrapTokenTree for Ident {
@@ -40,17 +45,19 @@ impl UnwrapTokenTree for Ident {
                 errm::expected_found(Self::type_desc(), tt.token_type_desc())
             ]));
 
-            Self::tt_default(tt.span())
+            unsafe {
+                Self::tt_default(tt.span())
+            }
         }
     }
 }
 impl TokenDefault for Ident {
-    fn tt_default(span: Span) -> Self {
+    unsafe fn tt_default(span: Span) -> Self {
         Self {
             span: span.with_len(0),
         }
     }
 }
-impl _ValidatedTokenTree for Ident {
+impl SubToken for Ident {
 
 }

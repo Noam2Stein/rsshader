@@ -34,7 +34,17 @@ impl<'src> TokenStream<'src> {
 }
 impl<'src> Display for TokenStream<'src> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.tts.iter().map(|tt| tt.tt_to_string(self.srcfile)).collect::<Box<[String]>>().join(" "))
+        let mut tts = self.tts.iter();
+        if let Some(tt) = tts.next() {
+            tt.fmt_with_src(f, self.srcfile)?;
+        }
+
+        for tt in tts {
+            write!(f, " ")?;
+            tt.fmt_with_src(f, self.srcfile)?;
+        }
+
+        Ok(())
     }
 }
 impl<'src> Describe for TokenStream<'src> {

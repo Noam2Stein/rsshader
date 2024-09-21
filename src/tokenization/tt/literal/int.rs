@@ -111,7 +111,9 @@ impl UnwrapTokenTree for IntLiteral {
                     errm::expected_found(Self::type_desc(), tt.literal_type_desc())
                 ]));
 
-                Self::tt_default(tt.span())
+                unsafe {
+                    Self::tt_default(tt.span())
+                }
             }
         }
         else {
@@ -119,12 +121,14 @@ impl UnwrapTokenTree for IntLiteral {
                 errm::expected_found(Self::type_desc(), tt.token_type_desc())
             ]));
 
-            Self::tt_default(tt.span())
+            unsafe {
+                Self::tt_default(tt.span())
+            }
         }
     }
 }
 impl TokenDefault for IntLiteral {
-    fn tt_default(span: Span) -> Self {
+    unsafe fn tt_default(span: Span) -> Self {
         Self {
             value: 0,
             suffix: 0,
@@ -132,7 +136,7 @@ impl TokenDefault for IntLiteral {
         }
     }
 }
-impl _ValidatedTokenTree for IntLiteral {
+impl SubToken for IntLiteral {
     
 }
 

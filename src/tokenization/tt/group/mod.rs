@@ -11,6 +11,19 @@ pub struct Group {
 }
 impl Group {
     #[inline(always)]
+    pub const fn delimiter(&self) -> Delimiter {
+        self.delimiter
+    }
+    #[inline(always)]
+    pub const fn tts(&self) -> &Vec<TokenTree> {
+        &self.tts
+    }
+    #[inline(always)]
+    pub fn into_tts(self) -> Vec<TokenTree> {
+        self.tts
+    }
+
+    #[inline(always)]
     pub fn open_span(&self) -> Span {
         self.span.first_byte()
     }
@@ -58,14 +71,14 @@ impl TypeDescribe for Group {
         Description::new("a group")
     }
 }
-impl TokenDisplay for Group {
-    fn tt_to_string(&self, srcfile: &SrcFile) -> String {
-        format!(
-            "{} {} {}",
-            self.delimiter.open_str(),
-            self.tts.iter().map(|tt| tt.tt_to_string(srcfile)).collect::<Box<[String]>>().join(" "),
-            self.delimiter.close_str(),
-        )
+impl DisplayWithSrc for Group {
+    fn fmt_with_src(&self, f: &mut Formatter, srcfile: &SrcFile) -> fmt::Result {
+        write!(f, "{} ", self.delimiter.open_str())?;
+        for tt in &self.tts {
+            tt.fmt_with_src(f, srcfile)?;
+            write!(f, " ")?;
+        }
+        write!(f, "{}", self.delimiter.close_str())
     }
 }
 impl UnwrapTokenTree for Group {
@@ -78,12 +91,14 @@ impl UnwrapTokenTree for Group {
                 errm::expected_found(Self::type_desc(), tt.token_type_desc())
             ]));
 
-            Self::tt_default(tt.span())
+            unsafe {
+                Self::tt_default(tt.span())
+            }
         }
     }
 }
 impl TokenDefault for Group {
-    fn tt_default(span: Span) -> Self {
+    unsafe fn tt_default(span: Span) -> Self {
         Self {
             delimiter: Delimiter::Brace,
             tts: Vec::new(),
@@ -91,6 +106,32 @@ impl TokenDefault for Group {
         }
     }
 }
-impl _ValidatedTokenTree for Group {
+impl UnwrapTokenTreeExpect<Delimiter> for Group {
+    fn unwrap_tt_expect(tt: TokenTree, expect: Delimiter, errs: &mut Vec<Error>) -> Self {
+        if let TokenTree::Group(mut tt) = tt {
+            if tt.delimiter != expect {
+                errs.push(Error::from_messages(tt.span(), [
+                    errm::expected_found(Self::expect_desc(expect), Self::expect_desc(tt.delimiter))
+                ]));
+            }
+
+            tt.delimiter = expect;
+            tt
+        }
+        else {
+            errs.push(Error::from_messages(tt.span(), [
+                errm::expected_found(Self::expect_desc(expect), tt.token_type_desc())
+            ]));
+
+            unsafe {
+                Self::tt_default(tt.span())
+            }
+        }
+    }
+    fn expect_desc(expect: Delimiter) -> Description {
+        Description::new(format!("a group with {}", expect.desc()))
+    }
+}
+impl SubToken for Group {
 
 }

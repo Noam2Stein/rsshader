@@ -1,5 +1,8 @@
 use super::*;
 
+pub fn unexpected_token() -> ErrorMessage {
+    ErrorMessage::Problem(format!("unexpected token"))
+}
 pub fn expected(expected: Description) -> ErrorMessage {
     ErrorMessage::Problem(format!("expected {expected}"))
 }
@@ -14,6 +17,9 @@ pub fn expected_is_not(expected: Description, found: Description) -> ErrorMessag
 }
 pub fn unexpected_end_of_file() -> ErrorMessage {
     ErrorMessage::Problem(format!("unexpected end of file"))
+}
+pub fn unexpected_end_of_tokens() -> ErrorMessage {
+    ErrorMessage::Problem(format!("unexpected end of tokens"))
 }
 pub fn is_not(x: Description, y: Description) -> ErrorMessage {
     ErrorMessage::Problem(format!("{x} is not {y}"))

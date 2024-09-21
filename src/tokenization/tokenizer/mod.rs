@@ -5,7 +5,7 @@ pub fn tokenize<'src>(srcfile: &'src SrcFile) -> Tokenizer<'src> {
     Tokenizer::new(srcfile)
 }
 
-#[repr(transparent)]
+#[derive(Debug, Clone)]
 pub struct Tokenizer<'src> {
     raw: RawTokenizer<'src>,
 }

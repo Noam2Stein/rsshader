@@ -100,7 +100,7 @@ impl Describe for Punct {
 impl TypeDescribe for Punct {
     #[inline(always)]
     fn type_desc() -> Description {
-        Description::new("a keyword")
+        Description::new("a punct")
     }
 }
 impl Spanned for Punct {
@@ -119,19 +119,49 @@ impl UnwrapTokenTree for Punct {
                 errm::expected_found(Self::type_desc(), tt.token_type_desc())
             ]));
 
-            Self::tt_default(tt.span())
+            unsafe {
+                Self::tt_default(tt.span())
+            }
         }
     }
 }
 impl TokenDefault for Punct {
     #[inline(always)]
-    fn tt_default(span: Span) -> Self {
+    unsafe fn tt_default(span: Span) -> Self {
         Self {
             id: 0,
             span_start: span.start()
         }
     }
 }
-impl _ValidatedTokenTree for Punct {
+impl UnwrapTokenTreeExpect<&str> for Punct {
+    fn unwrap_tt_expect(tt: TokenTree, expect: &str, errs: &mut Vec<Error>) -> Self {
+        if let TokenTree::Punct(tt) = tt {
+            if tt.s() != expect {
+                errs.push(Error::from_messages(tt.span(), [
+                    errm::expected_found(Self::expect_desc(expect), tt.desc())
+                ]));
+            }
+
+            Self {
+                id: Self::STRS.iter().position(|item| item == &expect).unwrap() as u8,
+                span_start: tt.span_start
+            }
+        }
+        else {
+            errs.push(Error::from_messages(tt.span(), [
+                errm::expected_found(Self::expect_desc(expect), tt.token_type_desc())
+            ]));
+
+            unsafe {
+                Self::tt_default(tt.span())
+            }
+        }
+    }
+    fn expect_desc(expect: &str) -> Description {
+        Description::quote(expect)
+    }
+}
+impl SubToken for Punct {
     
 }

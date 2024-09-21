@@ -68,14 +68,14 @@ impl TypeDescribe for TokenTree {
         Description::new("a token tree")
     }
 }
-impl TokenDisplay for TokenTree {
-    fn tt_to_string(&self, srcfile: &SrcFile) -> String {
+impl DisplayWithSrc for TokenTree {
+    fn fmt_with_src(&self, f: &mut Formatter, srcfile: &SrcFile) -> fmt::Result {
         match self {
-            Self::Keyword(tt) => tt.tt_to_string(srcfile),
-            Self::Ident(tt) => tt.tt_to_string(srcfile),
-            Self::Punct(tt) => tt.tt_to_string(srcfile),
-            Self::Literal(tt) => tt.tt_to_string(srcfile),
-            Self::Group(tt) => tt.tt_to_string(srcfile),
+            Self::Keyword(tt) => tt.fmt_with_src(f, srcfile),
+            Self::Ident(tt) => tt.fmt_with_src(f, srcfile),
+            Self::Punct(tt) => tt.fmt_with_src(f, srcfile),
+            Self::Literal(tt) => tt.fmt_with_src(f, srcfile),
+            Self::Group(tt) => tt.fmt_with_src(f, srcfile),
         }
     }
 }
@@ -85,32 +85,27 @@ impl UnwrapTokenTree for TokenTree {
     }
 }
 impl TokenDefault for TokenTree {
-    fn tt_default(span: Span) -> Self {
+    unsafe fn tt_default(span: Span) -> Self {
         Self::Ident(Ident::tt_default(span))
     }
 }
-impl _ValidatedTokenTree for TokenTree {
+impl SubToken for TokenTree {
 
-}
-
-pub trait TokenDisplay {
-    fn tt_to_string(&self, srcfile: &SrcFile) -> String;
-}
-impl<T: Display> TokenDisplay for T {
-    fn tt_to_string(&self, _srcfile: &SrcFile) -> String {
-        self.to_string()
-    }
 }
 
 pub trait UnwrapTokenTree {
     fn unwrap_tt(tt: TokenTree, errs: &mut Vec<Error>) -> Self;
 }
-
-trait TokenDefault {
-    fn tt_default(span: Span) -> Self;
+pub trait UnwrapTokenTreeExpect<E: Copy> {
+    fn unwrap_tt_expect(tt: TokenTree, expect: E, errs: &mut Vec<Error>) -> Self;
+    fn expect_desc(expect: E) -> Description;
 }
 
-trait _ValidatedTokenTree:
+pub trait TokenDefault {
+    unsafe fn tt_default(span: Span) -> Self;
+}
+
+pub trait SubToken:
 fmt::Debug +
 Clone +
 Eq +
@@ -118,7 +113,7 @@ Ord +
 Hash +
 TypeDescribe +
 Spanned +
-TokenDisplay +
+DisplayWithSrc +
 UnwrapTokenTree +
 TokenDefault +
 {

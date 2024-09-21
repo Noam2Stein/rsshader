@@ -139,7 +139,9 @@ impl UnwrapTokenTree for FloatLiteral {
                     errm::expected_found(Self::type_desc(), tt.literal_type_desc())
                 ]));
 
-                Self::tt_default(tt.span())
+                unsafe {
+                    Self::tt_default(tt.span())
+                }
             }
         }
         else {
@@ -147,12 +149,14 @@ impl UnwrapTokenTree for FloatLiteral {
                 errm::expected_found(Self::type_desc(), tt.token_type_desc())
             ]));
 
-            Self::tt_default(tt.span())
+            unsafe {
+                Self::tt_default(tt.span())
+            }
         }
     }
 }
 impl TokenDefault for FloatLiteral {
-    fn tt_default(span: Span) -> Self {
+    unsafe fn tt_default(span: Span) -> Self {
         Self {
             integral_value: 0,
             fractional_value: 0,
@@ -161,7 +165,7 @@ impl TokenDefault for FloatLiteral {
         }
     }
 }
-impl _ValidatedTokenTree for FloatLiteral {
+impl SubToken for FloatLiteral {
     
 }
 

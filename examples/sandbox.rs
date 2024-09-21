@@ -1,23 +1,17 @@
 use std::fmt::Display;
 
 use rsshader::{
-    diagnostic::*,
     source::*,
+    diagnostic::*,
     tokenization::*,
+    parsing::*,
+    syntax::*,
 };
 
 const SRC: &SrcFile = SrcFile::new(
     "
-    fn test(a: f32, b: f32) -> f32 {
-        a + b + 557895657897689467689676894574596847689467496486778u31
-        htnj
-        רערע eg
-    }
-
-    {
-        (
-        (
-    }
+    mod rect;
+    use
     "   
 );
 
@@ -25,10 +19,11 @@ fn main() {
     let (output, errs) = {
         let mut errs = Vec::new();
 
-        let output = {
-            let stream = tokenize_collected(SRC, &mut errs);
-            
-            stream
+        let output: String = {
+            let mut tokenizer = tokenize(SRC);
+            let ast = SyntaxTree::parse_tokens(&mut tokenizer, &mut errs);
+
+            ast.with_src(SRC).to_string()
         };
 
         errs.sort();

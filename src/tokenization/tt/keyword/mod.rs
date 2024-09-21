@@ -96,19 +96,49 @@ impl UnwrapTokenTree for Keyword {
                 errm::expected_found(Self::type_desc(), tt.token_type_desc())
             ]));
 
-            Self::tt_default(tt.span())
+            unsafe {
+                Self::tt_default(tt.span())
+            }
         }
     }
 }
 impl TokenDefault for Keyword {
     #[inline(always)]
-    fn tt_default(span: Span) -> Self {
+    unsafe fn tt_default(span: Span) -> Self {
         Self {
             id: 0,
             span_start: span.start()
         }
     }
 }
-impl _ValidatedTokenTree for Keyword {
+impl UnwrapTokenTreeExpect<&str> for Keyword {
+    fn unwrap_tt_expect(tt: TokenTree, expect: &str, errs: &mut Vec<Error>) -> Self {
+        if let TokenTree::Keyword(tt) = tt {
+            if tt.s() != expect {
+                errs.push(Error::from_messages(tt.span(), [
+                    errm::expected_found(Self::expect_desc(expect), tt.desc())
+                ]));
+            }
+
+            Self {
+                id: Self::STRS.iter().position(|item| item == &expect).unwrap() as u8,
+                span_start: tt.span_start
+            }
+        }
+        else {
+            errs.push(Error::from_messages(tt.span(), [
+                errm::expected_found(Self::expect_desc(expect), tt.token_type_desc())
+            ]));
+
+            unsafe {
+                Self::tt_default(tt.span())
+            }
+        }
+    }
+    fn expect_desc(expect: &str) -> Description {
+        Description::quote(expect)
+    }
+}
+impl SubToken for Keyword {
     
 }

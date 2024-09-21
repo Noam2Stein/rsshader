@@ -53,12 +53,12 @@ impl Spanned for Literal {
         }
     }
 }
-impl TokenDisplay for Literal {
-    fn tt_to_string(&self, srcfile: &SrcFile) -> String {
+impl DisplayWithSrc for Literal {
+    fn fmt_with_src(&self, f: &mut Formatter, srcfile: &SrcFile) -> fmt::Result {
         match self {
-            Self::Int(literal) => literal.tt_to_string(srcfile),
-            Self::Float(literal) => literal.tt_to_string(srcfile),
-        } 
+            Self::Int(literal) => literal.fmt_with_src(f, srcfile),
+            Self::Float(literal) => literal.fmt_with_src(f, srcfile),
+        }
     }
 }
 impl UnwrapTokenTree for Literal {
@@ -71,16 +71,18 @@ impl UnwrapTokenTree for Literal {
                 errm::expected_found(Self::type_desc(), tt.token_type_desc())
             ]));
 
-            Self::tt_default(tt.span())
+            unsafe {
+                Self::tt_default(tt.span())
+            }
         }
     }
 }
 impl TokenDefault for Literal {
     #[inline(always)]
-    fn tt_default(span: Span) -> Self {
+    unsafe fn tt_default(span: Span) -> Self {
         Self::Int(IntLiteral::tt_default(span))
     }
 }
-impl _ValidatedTokenTree for Literal {
+impl SubToken for Literal {
     
 }
