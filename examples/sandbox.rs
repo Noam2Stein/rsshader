@@ -11,7 +11,7 @@ use rsshader::{
 const SRC: &SrcFile = SrcFile::new(
     "
     mod rect;
-    use
+    use super;
     "   
 );
 
@@ -20,8 +20,8 @@ fn main() {
         let mut errs = Vec::new();
 
         let output: String = {
-            let mut tokenizer = tokenize(SRC);
-            let ast = SyntaxTree::parse_tokens(&mut tokenizer, &mut errs);
+            let tokenizer = tokenize(SRC);
+            let ast = SyntaxTree::parse_tokens(&mut tokenizer.into_parser(), &mut errs);
 
             ast.with_src(SRC).to_string()
         };

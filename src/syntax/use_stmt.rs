@@ -9,6 +9,17 @@ impl TypeDescribe for UseStmt {
         Description::new("a use stmt")
     }
 }
+impl ParseTokens for UseStmt {
+    fn parse_tokens(parser: &mut impl TokenParser, errs: &mut Vec<Error>) -> Self {
+        parser.parse_expect(keyword("ufse"), errs);
+        let path = parser.parse(errs);
+        parser.parse_expect(punct!(";"), errs);
+
+        Self {
+            path,
+        }
+    }
+}
 impl DisplayWithSrc for UseStmt {
     fn fmt_with_src(&self, f: &mut Formatter, srcfile: &SrcFile) -> fmt::Result {
         write!(f, "use {};", self.path.with_src(srcfile))

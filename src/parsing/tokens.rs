@@ -1,6 +1,6 @@
 use super::*;
 
-impl<T: SubToken> ParseTokens for T {
+impl<T: UnwrapTokenTree + TokenDefault + TypeDescribe> ParseTokens for T {
     fn parse_tokens(parser: &mut impl TokenParser, errs: &mut Vec<Error>) -> Self {
         if let Some(tt) = parser.next(errs) {
             T::unwrap_tt(tt, errs)
@@ -17,23 +17,21 @@ impl<T: SubToken> ParseTokens for T {
         }
     }
 }
-impl<E: Copy, T: SubToken + UnwrapTokenTreeExpect<E>> ParseTokensExpect<E> for T {
-    fn parse_tokens_expect(parser: &mut impl TokenParser, expect: E, errs: &mut Vec<Error>) -> Self {
+impl<T: UnwrapTokenTreeExpect> ParseTokensExpect for T {
+    type Output = T::Output;
+    fn parse_tokens_expect(self, parser: &mut impl TokenParser, errs: &mut Vec<Error>) -> Self::Output {
         if let Some(tt) = parser.next(errs) {
-            T::unwrap_tt_expect(tt, expect, errs)
+            self.unwrap_tt_expect(tt, errs)
         }
         else {
             errs.push(Error::from_messages(parser.end_span(), [
                 errm::unexpected_end_of_file(),
-                errm::expected(T::expect_desc(expect))
+                errm::expected(self.desc())
             ]));
 
             unsafe {
-                T::tt_default(parser.end_span())
+                T::Output::tt_default(parser.end_span())
             }
         }
-    }
-    fn expect_desc(expect: E) -> Description {
-        T::expect_desc(expect)
     }
 }

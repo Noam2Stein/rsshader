@@ -11,9 +11,9 @@ impl TypeDescribe for SubMod {
 }
 impl ParseTokens for SubMod {
     fn parse_tokens(parser: &mut impl TokenParser, errs: &mut Vec<Error>) -> Self {
-        parser.parse_expect::<&str, Keyword>("mod", errs);
+        parser.parse_expect(const {  }, errs);
         let ident = parser.parse(errs);
-        parser.parse_expect::<&str, Keyword>(";", errs);
+        parser.parse_expect(punct!(";"), errs);
 
         Self {
             ident,

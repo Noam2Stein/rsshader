@@ -3,6 +3,9 @@ use super::*;
 mod delimiter;
 pub use delimiter::*;
 
+mod with;
+pub use with::*;
+
 #[derive(Debug, Clone, Hash)]
 pub struct Group {
     delimiter: Delimiter,
@@ -104,32 +107,6 @@ impl TokenDefault for Group {
             tts: Vec::new(),
             span,
         }
-    }
-}
-impl UnwrapTokenTreeExpect<Delimiter> for Group {
-    fn unwrap_tt_expect(tt: TokenTree, expect: Delimiter, errs: &mut Vec<Error>) -> Self {
-        if let TokenTree::Group(mut tt) = tt {
-            if tt.delimiter != expect {
-                errs.push(Error::from_messages(tt.span(), [
-                    errm::expected_found(Self::expect_desc(expect), Self::expect_desc(tt.delimiter))
-                ]));
-            }
-
-            tt.delimiter = expect;
-            tt
-        }
-        else {
-            errs.push(Error::from_messages(tt.span(), [
-                errm::expected_found(Self::expect_desc(expect), tt.token_type_desc())
-            ]));
-
-            unsafe {
-                Self::tt_default(tt.span())
-            }
-        }
-    }
-    fn expect_desc(expect: Delimiter) -> Description {
-        Description::new(format!("a group with {}", expect.desc()))
     }
 }
 impl SubToken for Group {

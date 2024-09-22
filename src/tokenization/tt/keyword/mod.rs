@@ -1,11 +1,10 @@
 use super::*;
 
-#[derive(Debug, Clone, Copy, Hash)]
-pub struct Keyword {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct RawKeyword {
     id: u8,
-    span_start: usize,
 }
-impl Keyword {
+impl RawKeyword {
     pub const STRS: &'static [&'static str] = &[
         "pub",
         "const",
@@ -25,17 +24,127 @@ impl Keyword {
         "as",
         "in",
     ];
+    pub const fn from_str(s: &str) -> Option<Self> {
+        // this fn could be faster when rust allows const hashmaps
+        let mut position = 0;
+        // while Self::STRS[position] != position {
+        while !'eq: {
+            if Self::STRS[position].len() == s.len() {
+                let mut i = 0;
+                while i < s.len() {
+                    if Self::STRS[position].as_bytes()[i] != s.as_bytes()[i] {
+                        break 'eq false;
+                    }
+                    i += 1;
+                }
+
+                true
+            }
+            else {
+                false
+            }
+        } {    
+            position += 1;
+            if position >= Self::STRS.len() {
+                return None;
+            }
+        }
+
+        Some(
+            Self {
+                id: position as u8,
+            }
+        )
+    }
+    pub const fn str(self) -> &'static str {
+        Self::STRS[self.id as usize]
+    }
+}
+impl Display for RawKeyword {
+    #[inline(always)]
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        self.str().fmt(f)
+    }
+}
+impl FromStr for RawKeyword {
+    type Err = ErrorMessage;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Some(position) = Self::STRS.iter().position(|keyword| *keyword == s) {
+            Ok(
+                Self {
+                    id: position as u8,
+                }
+            )
+        }
+        else {
+            Err(errm::is_not(Description::quote(s), Self::type_desc()))
+        }
+    }
+}
+impl Describe for RawKeyword {
+    fn desc(&self) -> Description {
+        Description::quote(&self.str())
+    }
+}
+impl TypeDescribe for RawKeyword {
+    fn type_desc() -> Description {
+        Description::quote("a keyword")
+    }
+}
+impl UnwrapTokenTreeExpect for RawKeyword {
+    type Output = Keyword;
+    fn unwrap_tt_expect(self, tt: TokenTree, errs: &mut Vec<Error>) -> Self::Output {
+        if let TokenTree::Keyword(tt) = tt {
+            if tt.raw == self {
+                tt
+            }
+            else {
+                errs.push(Error::from_messages(tt.span(), [
+                    errm::expected_found(self.desc(), tt.desc())
+                ]));
+
+                Keyword {
+                    raw: self,
+                    span_start: tt.span_start,
+                }
+            }
+        }
+        else {
+            errs.push(Error::from_messages(tt.span(), [
+                errm::expected_found(self.desc(), tt.token_type_desc())
+            ]));
+
+            unsafe {
+                Keyword::tt_default(tt.span())
+            }
+        }   
+    }
+}
+
+#[derive(Debug, Clone, Copy, Hash)]
+pub struct Keyword {
+    raw: RawKeyword,
+    span_start: usize,
+}
+impl Keyword {
+    pub const STRS: &'static [&'static str] = RawKeyword::STRS;
 
     #[inline(always)]
-    pub const fn s(&self) -> &'static str {
-        Self::STRS[self.id as usize]
+    pub const fn raw(&self) -> RawKeyword {
+        self.raw
+    }
+    #[inline(always)]
+    pub const fn str(&self) -> &'static str {
+        self.raw.str()
     }
 
     #[inline(always)]
     pub(in crate::tokenization) fn new(srcslice: &SrcSlice, span: Span) -> Option<Self> {
         Self::STRS.iter().position(|keyword| srcslice.s() == *keyword).map(|position|
             Self {
-                id: position as u8,
+                raw: RawKeyword {
+                    id: position as u8
+                },
                 span_start: span.start(),
             }
         )
@@ -65,25 +174,25 @@ impl Ord for Keyword {
 impl Display for Keyword {
     #[inline(always)]
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        self.s().fmt(f)
+        self.raw.fmt(f)
     }
 }
 impl Describe for Keyword {
     #[inline(always)]
     fn desc(&self) -> Description {
-        Description::quote(self.s())
+        RawKeyword::desc(&self.raw)
     }
 }
 impl TypeDescribe for Keyword {
     #[inline(always)]
     fn type_desc() -> Description {
-        Description::new("a keyword")
+        RawKeyword::type_desc()
     }
 }
 impl Spanned for Keyword {
     #[inline(always)]
     fn span(&self) -> Span {
-        Span::sized(self.span_start, self.s().len())
+        Span::sized(self.span_start, self.str().len())
     }
 }
 impl UnwrapTokenTree for Keyword {
@@ -106,37 +215,11 @@ impl TokenDefault for Keyword {
     #[inline(always)]
     unsafe fn tt_default(span: Span) -> Self {
         Self {
-            id: 0,
+            raw: RawKeyword {
+                id: 0,
+            },
             span_start: span.start()
         }
-    }
-}
-impl UnwrapTokenTreeExpect<&str> for Keyword {
-    fn unwrap_tt_expect(tt: TokenTree, expect: &str, errs: &mut Vec<Error>) -> Self {
-        if let TokenTree::Keyword(tt) = tt {
-            if tt.s() != expect {
-                errs.push(Error::from_messages(tt.span(), [
-                    errm::expected_found(Self::expect_desc(expect), tt.desc())
-                ]));
-            }
-
-            Self {
-                id: Self::STRS.iter().position(|item| item == &expect).unwrap() as u8,
-                span_start: tt.span_start
-            }
-        }
-        else {
-            errs.push(Error::from_messages(tt.span(), [
-                errm::expected_found(Self::expect_desc(expect), tt.token_type_desc())
-            ]));
-
-            unsafe {
-                Self::tt_default(tt.span())
-            }
-        }
-    }
-    fn expect_desc(expect: &str) -> Description {
-        Description::quote(expect)
     }
 }
 impl SubToken for Keyword {

@@ -96,9 +96,9 @@ impl SubToken for TokenTree {
 pub trait UnwrapTokenTree {
     fn unwrap_tt(tt: TokenTree, errs: &mut Vec<Error>) -> Self;
 }
-pub trait UnwrapTokenTreeExpect<E: Copy> {
-    fn unwrap_tt_expect(tt: TokenTree, expect: E, errs: &mut Vec<Error>) -> Self;
-    fn expect_desc(expect: E) -> Description;
+pub trait UnwrapTokenTreeExpect: Describe {
+    type Output: Sized + TokenDefault;
+    fn unwrap_tt_expect(self, tt: TokenTree, errs: &mut Vec<Error>) -> Self::Output;
 }
 
 pub trait TokenDefault {

@@ -20,16 +20,16 @@ pub trait TokenParser: Sized + Clone {
     fn parse<P: ParseTokens>(&mut self, errs: &mut Vec<Error>) -> P {
         P::parse_tokens(self, errs)
     }
-    fn parse_expect<E: Copy, P: ParseTokensExpect<E>>(&mut self, expect: E, errs: &mut Vec<Error>) -> P {
-        P::parse_tokens_expect(self, expect, errs)
+    fn parse_expect<E: ParseTokensExpect>(&mut self, expect: E, errs: &mut Vec<Error>) -> E::Output {
+        E::parse_tokens_expect(expect, self, errs)
     }
 }
 pub trait ParseTokens {
     fn parse_tokens(parser: &mut impl TokenParser, errs: &mut Vec<Error>) -> Self;
 }
-pub trait ParseTokensExpect<E: Copy> {
-    fn parse_tokens_expect(parser: &mut impl TokenParser, expect: E, errs: &mut Vec<Error>) -> Self;
-    fn expect_desc(expect: E) -> Description;
+pub trait ParseTokensExpect {
+    type Output: Sized;
+    fn parse_tokens_expect(self, parser: &mut impl TokenParser, errs: &mut Vec<Error>) -> Self::Output;
 }
 
 pub trait AsTokenParser {

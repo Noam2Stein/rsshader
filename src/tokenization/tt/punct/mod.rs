@@ -1,11 +1,10 @@
 use super::*;
 
-#[derive(Debug, Clone, Copy, Hash)]
-pub struct Punct {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct RawPunct {
     id: u8,
-    span_start: usize,
 }
-impl Punct {
+impl RawPunct {
     pub const STRS: &'static [&'static str] = &[
         "`",
         "~",
@@ -49,17 +48,125 @@ impl Punct {
         "=>",
         "<=",
     ];
+    pub const fn from_str(s: &str) -> Self {
+        // this fn could be faster when rust allows const hashmaps
+        let mut position = 0;
+        // while Self::STRS[position] != position {
+        while 'ne: {
+            if Self::STRS[position].len() == s.len() {
+                let mut i = 0;
+                while i < s.len() {
+                    if Self::STRS[position].as_bytes()[i] != s.as_bytes()[i] {
+                        break 'ne true;
+                    }
+                    i += 1;
+                }
+
+                false
+            }
+            else {
+                true
+            }
+        } {    
+            position += 1;
+            if position >= Self::STRS.len() {
+                panic!("the given str is not a punct");
+            }
+        }
+
+        Self {
+            id: position as u8,
+        }
+    }
+    pub const fn str(self) -> &'static str {
+        Self::STRS[self.id as usize]
+    }
+}
+impl Display for RawPunct {
+    #[inline(always)]
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        self.str().fmt(f)
+    }
+}
+impl FromStr for RawPunct {
+    type Err = ErrorMessage;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Some(position) = Self::STRS.iter().position(|keyword| *keyword == s) {
+            Ok(
+                Self {
+                    id: position as u8,
+                }
+            )
+        }
+        else {
+            Err(errm::is_not(Description::quote(s), Self::type_desc()))
+        }
+    }
+}
+impl Describe for RawPunct {
+    fn desc(&self) -> Description {
+        Description::quote(&self.str())
+    }
+}
+impl TypeDescribe for RawPunct {
+    fn type_desc() -> Description {
+        Description::quote("a punct")
+    }
+}
+impl UnwrapTokenTreeExpect for RawPunct {
+    type Output = Punct;
+    fn unwrap_tt_expect(self, tt: TokenTree, errs: &mut Vec<Error>) -> Self::Output {
+        if let TokenTree::Punct(tt) = tt {
+            if tt.raw == self {
+                tt
+            }
+            else {
+                errs.push(Error::from_messages(tt.span(), [
+                    errm::expected_found(self.desc(), tt.desc())
+                ]));
+
+                Punct {
+                    raw: self,
+                    span_start: tt.span_start,
+                }
+            }
+        }
+        else {
+            errs.push(Error::from_messages(tt.span(), [
+                errm::expected_found(self.desc(), tt.token_type_desc())
+            ]));
+
+            unsafe {
+                Punct::tt_default(tt.span())
+            }
+        }   
+    }
+}
+
+#[derive(Debug, Clone, Copy, Hash)]
+pub struct Punct {
+    raw: RawPunct,
+    span_start: usize,
+}
+impl Punct {
+    pub const STRS: &'static [&'static str] = RawPunct::STRS;
 
     #[inline(always)]
-    pub const fn s(&self) -> &'static str {
-        Self::STRS[self.id as usize]
+    pub const fn raw(&self) -> RawPunct {
+        self.raw
+    }
+    #[inline(always)]
+    pub const fn str(&self) -> &'static str {
+        self.raw.str()
     }
 
     #[inline(always)]
     pub(in crate::tokenization) fn new(srcslice: &SrcSlice, span: Span) -> Self {
         let position = Self::STRS.iter().position(|keyword| srcslice.s() == *keyword).unwrap();
         Self {
-            id: position as u8,
+            raw: RawPunct {
+                id: position as u8
+            },
             span_start: span.start(),
         }
     }
@@ -88,25 +195,25 @@ impl Ord for Punct {
 impl Display for Punct {
     #[inline(always)]
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        self.s().fmt(f)
+        self.raw.fmt(f)
     }
 }
 impl Describe for Punct {
     #[inline(always)]
     fn desc(&self) -> Description {
-        Description::quote(self.s())
+        RawPunct::desc(&self.raw)
     }
 }
 impl TypeDescribe for Punct {
     #[inline(always)]
     fn type_desc() -> Description {
-        Description::new("a punct")
+        RawPunct::type_desc()
     }
 }
 impl Spanned for Punct {
     #[inline(always)]
     fn span(&self) -> Span {
-        Span::sized(self.span_start, self.s().len())
+        Span::sized(self.span_start, self.str().len())
     }
 }
 impl UnwrapTokenTree for Punct {
@@ -129,37 +236,11 @@ impl TokenDefault for Punct {
     #[inline(always)]
     unsafe fn tt_default(span: Span) -> Self {
         Self {
-            id: 0,
+            raw: RawPunct {
+                id: 0,
+            },
             span_start: span.start()
         }
-    }
-}
-impl UnwrapTokenTreeExpect<&str> for Punct {
-    fn unwrap_tt_expect(tt: TokenTree, expect: &str, errs: &mut Vec<Error>) -> Self {
-        if let TokenTree::Punct(tt) = tt {
-            if tt.s() != expect {
-                errs.push(Error::from_messages(tt.span(), [
-                    errm::expected_found(Self::expect_desc(expect), tt.desc())
-                ]));
-            }
-
-            Self {
-                id: Self::STRS.iter().position(|item| item == &expect).unwrap() as u8,
-                span_start: tt.span_start
-            }
-        }
-        else {
-            errs.push(Error::from_messages(tt.span(), [
-                errm::expected_found(Self::expect_desc(expect), tt.token_type_desc())
-            ]));
-
-            unsafe {
-                Self::tt_default(tt.span())
-            }
-        }
-    }
-    fn expect_desc(expect: &str) -> Description {
-        Description::quote(expect)
     }
 }
 impl SubToken for Punct {
