@@ -1,7 +1,10 @@
-use std::{fmt::{self, Display, Formatter}, hash::Hash, mem, ops::{Index, Range}, str::FromStr};
+use std::marker::PhantomData;
 
-pub mod source;
-pub mod diagnostic;
-pub mod tokenization;
-pub mod parsing;
-pub mod syntax;
+pub mod constructs;
+pub mod shader_core;
+
+pub use rsshader_proc_macros::*;
+
+pub struct Pipeline<V: constructs::Vertex> {
+    danny: PhantomData<V>,
+}
