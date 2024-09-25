@@ -1,18 +1,13 @@
-use constructs::GPUType;
-use rsshader::{shader_core::*, *};
+use rsshader::constructs::GPUType;
 
 use utils::*;
 
-#[gpu]
-struct Vertex<T: GPUType> {
-    f: T,
-    pos: Vec2,
-    color: Vec4,
-}
+mod shader;
+use shader::*;
 
 fn main() {
-    println!("{}", fn_display(Vertex::<u8>::wgsl_declaration));
-    println!("{}", fn_display(Vertex::<u32>::wgsl_declaration));
+    println!("{}", fn_display(Vertex::wgsl_declaration));
+    println!("{}", fn_display(Fragment::wgsl_declaration));
 }
 
 mod utils {

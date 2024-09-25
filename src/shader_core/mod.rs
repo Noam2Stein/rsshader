@@ -2,6 +2,8 @@ use std::fmt::{self, Display, Formatter};
 
 use crate::constructs::*;
 
+pub use crate::gpu;
+
 pub trait Element: GPUType {
 
 }
