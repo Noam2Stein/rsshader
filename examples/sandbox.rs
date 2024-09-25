@@ -3,7 +3,7 @@ use rsshader::{shader_core::*, *};
 
 use utils::*;
 
-#[gpu(Struct)]
+#[gpu]
 struct Vertex<T: GPUType> {
     f: T,
     pos: Vec2,
@@ -11,8 +11,6 @@ struct Vertex<T: GPUType> {
 }
 
 fn main() {
-    println!("{}", fn_display(Vertex::<u8>::wgsl_declaration));
-    println!("{}", fn_display(Vertex::<u32>::wgsl_declaration));
     println!("{}", fn_display(Vertex::<u8>::wgsl_declaration));
     println!("{}", fn_display(Vertex::<u32>::wgsl_declaration));
 }
