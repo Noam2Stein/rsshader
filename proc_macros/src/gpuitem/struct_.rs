@@ -1,9 +1,9 @@
-use quote::{quote, ToTokens};
-use syn::{Ident, ItemStruct, Type};
+use quote::{quote, quote_spanned, ToTokens};
+use syn::{spanned::Spanned, Ident, ItemStruct, Type};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct FragmentInfo {
-    pub pos_field_index: usize,
+    pub pos_field: Option<Ident>,
 }
 
 #[derive(Clone)]
@@ -40,14 +40,17 @@ impl ToTokens for GPUStruct {
             .iter()
             .map(|field| &field.ty)
             .collect::<Box<[&Type]>>();
-        let field_fragment_pos_attrs = (0..self.input.fields.len()).map(|field_index| {
-            self.fragment_info.map_or(None, |fragment_info| {
-                if fragment_info.pos_field_index == field_index {
+        let field_fragment_pos_attrs = self.input.fields.iter().map(|field| {
+            if let Some(fragment_info) = &self.fragment_info {
+                if fragment_info.pos_field == field.ident {
                     Some(quote! { @builtin(position) })
                 } else {
                     None
                 }
-            })
+            }
+            else {
+                None
+            }
         });
 
         tokens.extend(quote! {
@@ -72,7 +75,7 @@ impl ToTokens for GPUStruct {
             }
         });
 
-        if let Some(_) = self.vertex_info {
+        if let Some(_) = &self.vertex_info {
             tokens.extend(
                 quote! {
                     unsafe impl #impl_generics rsshader::constructs::Vertex for #ident #ty_generics #where_clause {
@@ -81,11 +84,18 @@ impl ToTokens for GPUStruct {
                 }
             );
         }
-        if let Some(_) = self.fragment_info {
+        if let Some(fragment_info) = &self.fragment_info {
+            let pos = fragment_info.pos_field.clone().map_or_else(
+                || quote! { unreachable!() },
+                |pos_field| quote_spanned! { pos_field.span() => self.#pos_field }
+            );
             tokens.extend(
-                quote! {
+                quote_spanned! {
+                    pos.span() =>
                     unsafe impl #impl_generics rsshader::constructs::Fragment for #ident #ty_generics #where_clause {
-
+                        fn pos(&self) -> rsshader::shader_core::Vec4 {
+                            #pos
+                        }
                     }
                 }
             );

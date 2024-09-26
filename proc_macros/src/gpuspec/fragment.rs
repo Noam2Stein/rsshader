@@ -1,3 +1,6 @@
+use quote::quote;
+use syn::{parse2, Ident};
+
 use crate::struct_::FragmentInfo;
 
 use super::*;
@@ -5,9 +8,8 @@ use super::*;
 pub fn apply_gpuspec(spec: &Meta, item: &mut GPUItem, errs: &mut Vec<TokenStream>) {
     match item {
         GPUItem::Struct(item) => {
-            let mut field_index = 0;
             for field in &mut item.input.fields {
-                field.attrs.retain(|attr| {
+                field.attrs.retain_mut(|attr| {
                     if attr
                         .path()
                         .require_ident()
@@ -15,22 +17,27 @@ pub fn apply_gpuspec(spec: &Meta, item: &mut GPUItem, errs: &mut Vec<TokenStream
                     {
                         if item.fragment_info == None {
                             item.fragment_info = Some(FragmentInfo {
-                                pos_field_index: field_index,
+                                pos_field: field
+                                    .ident
+                                    .clone()
+                                    .map(|ident| Ident::new(&ident.to_string(), field.ty.span())),
                             });
+
+                            attr.meta = parse2(quote! { allow(dead_code) }).unwrap();
+
+                            true
                         } else {
                             errs.push(quote_spanned! {
                                 spec.span() =>
                                 compile_error!("expected 1 field to be marked #[fragment_pos]");
                             });
-                        }
 
-                        false
+                            false
+                        }
                     } else {
                         true
                     }
                 });
-
-                field_index += 1;
             }
 
             if item.fragment_info == None {
@@ -39,7 +46,7 @@ pub fn apply_gpuspec(spec: &Meta, item: &mut GPUItem, errs: &mut Vec<TokenStream
                     compile_error!("expected 1 field to be marked #[fragment_pos]");
                 });
 
-                item.fragment_info = Some(FragmentInfo { pos_field_index: 0 });
+                item.fragment_info = Some(FragmentInfo { pos_field: None });
             }
         }
         _ => errs.push(quote_spanned! {

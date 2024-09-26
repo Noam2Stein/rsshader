@@ -4,7 +4,7 @@ use crate::constructs::*;
 
 pub use crate::gpu;
 
-pub trait Element: GPUType {}
+pub trait Element: GPUType + Copy + PartialEq + PartialOrd + Default {}
 macro_rules! element_ty {
     ($ty:ty, $wgsl_ident:literal) => {
         unsafe impl GPUType for $ty {
@@ -33,6 +33,7 @@ element_ty!(i128, "i128");
 
 macro_rules! vec_ty {
     ($ident:ident($($component:ident), +), $wgsl_ident:literal) => {
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
         pub struct $ident<T: Element = f32> {
             $(
                 pub $component: T,

@@ -1,7 +1,7 @@
 use quote::quote;
-use syn::{parse2, FnArg, ReturnType, Type};
+use syn::{parse2, FnArg, ReturnType};
 
-use crate::fn_::PipelineStage;
+use crate::fn_::PipelineFn;
 
 use super::*;
 
@@ -16,49 +16,27 @@ pub fn apply_gpuspec(spec: &Meta, item: &mut GPUItem, errs: &mut Vec<TokenStream
                     }
                 )
             } else {
-                item.pipeline_stage = Some(PipelineStage::Vertex);
+                item.pipeline_stage = Some(PipelineFn::Vertex {
+                    vertex_ty: if let Some(input) = item.input.sig.inputs.first() {
+                        match input {
+                            FnArg::Typed(ty) => ty.ty.clone(),
+                            FnArg::Receiver(receiver) => receiver.ty.clone(),
+                        }
+                    } else {
+                        parse2(quote! { () }).unwrap()
+                    },
+                    fragment_ty: match &item.input.sig.output {
+                        ReturnType::Default => parse2(quote! { () }).unwrap(),
+                        ReturnType::Type(_, ty) => ty.clone(),
+                    },
+                });
 
-                item.input.block.stmts.insert(0, parse2(
-                    if item.input.sig.inputs.len() == 1 {
-                        let arg = item.input.sig.inputs.first().unwrap();
-                        match arg {
-                            FnArg::Typed(ty) => {
-                                let ty = &ty.ty;
-                                quote_spanned! {
-                                    ty.span() =>
-                                    <#ty as rsshader::constructs::Vertex>::validate();
-                                }
-                            },
-                            FnArg::Receiver(_) => {
-                                quote_spanned! {
-                                    arg.span() =>
-                                    compile_error!("a fragment fn can't recieve a: self, &self, &mut self");
-                                }
-                            }
-                        }
-                    }
-                    else {
-                        quote_spanned! {
-                            item.input.sig.inputs.span() =>
-                            compile_error!("a fragment fn has to have 1 argument");
-                        }
-                    }
-                ).unwrap());
-
-                item.input.block.stmts.insert(
-                    0,
-                    parse2({
-                        let ty: Type = match &item.input.sig.output {
-                            ReturnType::Type(_, ty) => *(*ty).clone(),
-                            ReturnType::Default => parse2(quote! { () }).unwrap(),
-                        };
-                        quote_spanned! {
-                            ty.span() =>
-                            <#ty as rsshader::constructs::Fragment>::validate();
-                        }
-                    })
-                    .unwrap(),
-                );
+                if item.input.sig.inputs.len() != 1 {
+                    errs.push(quote_spanned! {
+                        item.input.sig.paren_token.span.span() =>
+                        compile_error!("a vertex fn has to have 1 arg");
+                    });
+                }
             }
         }
         _ => errs.push(quote_spanned! {

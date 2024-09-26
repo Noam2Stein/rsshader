@@ -2,16 +2,16 @@ use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned, ToTokens, TokenStreamExt};
 use syn::{parse2, spanned::Spanned, FnArg, Ident, ItemFn, ReturnType, Type};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum PipelineStage {
-    Vertex,
-    Fragment,
+#[derive(Clone)]
+pub enum PipelineFn {
+    Vertex { vertex_ty: Box<Type>, fragment_ty: Box<Type> },
+    Fragment { fragment_ty: Box<Type> },
 }
 
 #[derive(Clone)]
 pub struct GPUFn {
     pub input: ItemFn,
-    pub pipeline_stage: Option<PipelineStage>,
+    pub pipeline_stage: Option<PipelineFn>,
 }
 impl From<ItemFn> for GPUFn {
     fn from(mut value: ItemFn) -> Self {
@@ -66,6 +66,12 @@ impl From<ItemFn> for GPUFn {
 }
 impl ToTokens for GPUFn {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        tokens.append_all(
+            quote! {
+                #[allow(unused)]
+            }
+        );
+
         self.input.to_tokens(tokens);
 
         let ty_ident = Ident::new(
@@ -75,6 +81,7 @@ impl ToTokens for GPUFn {
 
         tokens.append_all(
             quote! {
+                #[allow(non_camel_case_types)]
                 pub struct #ty_ident {
                     
                 }
@@ -92,5 +99,24 @@ impl ToTokens for GPUFn {
                 }
             }
         );
+
+        if let Some(pipeline_stage) = &self.pipeline_stage {
+            match pipeline_stage {
+                PipelineFn::Vertex { vertex_ty, fragment_ty } => tokens.append_all(
+                    quote! {
+                        unsafe impl rsshader::constructs::VertexFn<#vertex_ty, #fragment_ty> for #ty_ident {
+
+                        }
+                    }
+                ),
+                PipelineFn::Fragment { fragment_ty } => tokens.append_all(
+                    quote! {
+                        unsafe impl rsshader::constructs::FragmentFn<#fragment_ty> for #ty_ident {
+
+                        }
+                    }
+                ),
+            }
+        }
     }
 }

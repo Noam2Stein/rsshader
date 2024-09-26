@@ -1,4 +1,4 @@
-use rsshader::shader_core::*;
+use rsshader::{shader_core::*, WGSLPipeline};
 
 #[gpu(vertex)]
 pub struct Vertex {
@@ -28,3 +28,6 @@ pub fn vs_main(input: Vertex) -> Fragment {
 pub fn fs_main(input: Fragment) -> Vec4 {
     input.color
 }
+
+pub static HELLO_TRIANGLE: WGSLPipeline<Vertex> =
+    WGSLPipeline::new::<Fragment, vs_main_as_gpu_fn, fs_main_as_gpu_fn>();
