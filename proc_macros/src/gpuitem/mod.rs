@@ -1,13 +1,13 @@
 use quote::ToTokens;
 
-pub mod struct_;
 pub mod fn_;
+pub mod struct_;
 
 use super::*;
 
 pub enum GPUItem {
     Struct(struct_::GPUStruct),
-    Fn (fn_::GPUFn),
+    Fn(fn_::GPUFn),
     Err(TokenStream),
 }
 impl From<Item> for GPUItem {
@@ -15,12 +15,10 @@ impl From<Item> for GPUItem {
         match value {
             Item::Struct(value) => GPUItem::Struct(value.into()),
             Item::Fn(value) => GPUItem::Fn(value.into()),
-            _ => GPUItem::Err(
-                quote! {
-                    attr.span() =>
-                    compile_error!("this item type can't be used as a gpu item");
-                }
-            )
+            _ => GPUItem::Err(quote! {
+                attr.span() =>
+                compile_error!("this item type can't be used as a gpu item");
+            }),
         }
     }
 }

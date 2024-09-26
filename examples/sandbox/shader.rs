@@ -15,7 +15,12 @@ pub struct Fragment {
 #[gpu(vertex_fn)]
 pub fn vs_main(input: Vertex) -> Fragment {
     Fragment {
-        pos: Vec4 { x: input.pos.x, y: input.pos.y, z: 0.0, w: 1.1 },
+        pos: Vec4 {
+            x: input.pos.x,
+            y: input.pos.y,
+            z: 0.0,
+            w: 1.1,
+        },
         color: input.color,
     }
 }

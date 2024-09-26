@@ -15,37 +15,48 @@ pub struct GPUFn {
 }
 impl From<ItemFn> for GPUFn {
     fn from(mut value: ItemFn) -> Self {
-        value.block.stmts.insert(0, parse2(
-            value.sig.inputs.iter().map(|arg| {
-                match arg {
-                    FnArg::Typed(ty) => {
-                        let ty = &ty.ty;
-                        quote_spanned! {
-                            ty.span() =>
-                            <#ty as rsshader::constructs::GPUType>::validate();
+        value.block.stmts.insert(
+            0,
+            parse2(
+                value
+                    .sig
+                    .inputs
+                    .iter()
+                    .map(|arg| match arg {
+                        FnArg::Typed(ty) => {
+                            let ty = &ty.ty;
+                            quote_spanned! {
+                                ty.span() =>
+                                <#ty as rsshader::constructs::GPUType>::validate();
+                            }
                         }
-                    },
-                    FnArg::Receiver(receiver) => {
-                        let ty = &*receiver.ty;
-                        quote_spanned! {
-                            ty.span() =>
-                            <#ty as rsshader::constructs::GPUType>::validate();
+                        FnArg::Receiver(receiver) => {
+                            let ty = &*receiver.ty;
+                            quote_spanned! {
+                                ty.span() =>
+                                <#ty as rsshader::constructs::GPUType>::validate();
+                            }
                         }
-                    }
-                }
-            }).collect::<TokenStream>()
-        ).unwrap());
+                    })
+                    .collect::<TokenStream>(),
+            )
+            .unwrap(),
+        );
 
-        value.block.stmts.insert(0,parse2( {
-            let ty: Type = match &value.sig.output {
-                ReturnType::Type(_, ty) => *(*ty).clone(),
-                ReturnType::Default => parse2(quote! { () }).unwrap(),
-            };
-            quote_spanned! {
-                ty.span() =>
-                <#ty as rsshader::constructs::GPUType>::validate();
-            }
-        }).unwrap());
+        value.block.stmts.insert(
+            0,
+            parse2({
+                let ty: Type = match &value.sig.output {
+                    ReturnType::Type(_, ty) => *(*ty).clone(),
+                    ReturnType::Default => parse2(quote! { () }).unwrap(),
+                };
+                quote_spanned! {
+                    ty.span() =>
+                    <#ty as rsshader::constructs::GPUType>::validate();
+                }
+            })
+            .unwrap(),
+        );
 
         Self {
             input: value,
@@ -57,7 +68,10 @@ impl ToTokens for GPUFn {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         self.input.to_tokens(tokens);
 
-        let ty_ident = Ident::new(&format!("{}_as_gpu_fn", self.input.sig.ident), self.input.sig.ident.span());
+        let ty_ident = Ident::new(
+            &format!("{}_as_gpu_fn", self.input.sig.ident),
+            self.input.sig.ident.span(),
+        );
 
         tokens.append_all(
             quote! {

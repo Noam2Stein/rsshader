@@ -2,10 +2,10 @@ use proc_macro2::TokenStream;
 use quote::quote_spanned;
 use syn::{spanned::Spanned, Meta};
 
-mod vertex;
 mod fragment;
-mod vertex_fn;
 mod fragment_fn;
+mod vertex;
+mod vertex_fn;
 
 use crate::GPUItem;
 
@@ -19,58 +19,46 @@ pub fn apply_gpuspec(spec: &Meta, item: &mut GPUItem, errs: &mut Vec<TokenStream
                 "fragment_fn" => fragment_fn::apply_gpuspec(spec, item, errs),
                 _ => {
                     let message = format!("'{spec_ident}' is not a gpu specification");
-                    errs.push(
-                        quote_spanned! {
-                            spec_ident.span() =>
-                            compile_error!(#message);
-                        }
-                    );
+                    errs.push(quote_spanned! {
+                        spec_ident.span() =>
+                        compile_error!(#message);
+                    });
                 }
             },
-            None => errs.push(
-                quote_spanned! {
-                    spec_path.span() =>
-                    compile_error!("expected an ident");
-                }
-            ),
+            None => errs.push(quote_spanned! {
+                spec_path.span() =>
+                compile_error!("expected an ident");
+            }),
         },
         Meta::List(spec) => match spec.path.get_ident() {
             Some(spec) => match spec.to_string().as_str() {
-                _ => errs.push(
-                    {
-                        let message = format!("'{spec}' is not a gpu specification");
-                        quote_spanned! {
-                            spec.span() =>
-                            compile_error!(#message);
-                        }
+                _ => errs.push({
+                    let message = format!("'{spec}' is not a gpu specification");
+                    quote_spanned! {
+                        spec.span() =>
+                        compile_error!(#message);
                     }
-                ),
+                }),
             },
-            None => errs.push(
-                quote_spanned! {
-                    spec.span() =>
-                    compile_error!("expected an ident");
-                }
-            ),
+            None => errs.push(quote_spanned! {
+                spec.span() =>
+                compile_error!("expected an ident");
+            }),
         },
         Meta::NameValue(spec) => match spec.path.get_ident() {
             Some(spec) => match spec.to_string().as_str() {
-                _ => errs.push(
-                    {
-                        let message = format!("'{spec}' is not a gpu specification");
-                        quote_spanned! {
-                            spec.span() =>
-                            compile_error!(#message);
-                        }
+                _ => errs.push({
+                    let message = format!("'{spec}' is not a gpu specification");
+                    quote_spanned! {
+                        spec.span() =>
+                        compile_error!(#message);
                     }
-                ),
+                }),
             },
-            None => errs.push(
-                quote_spanned! {
-                    spec.span() =>
-                    compile_error!("expected an ident");
-                }
-            ),
-        }
+            None => errs.push(quote_spanned! {
+                spec.span() =>
+                compile_error!("expected an ident");
+            }),
+        },
     }
 }

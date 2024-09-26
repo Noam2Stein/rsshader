@@ -15,8 +15,7 @@ pub fn apply_gpuspec(spec: &Meta, item: &mut GPUItem, errs: &mut Vec<TokenStream
                         compile_error!("fn can't be a fragment_fn because it is already mapped to a pipeline stage");
                     }
                 )
-            }
-            else {
+            } else {
                 item.pipeline_stage = Some(PipelineStage::Fragment);
 
                 item.input.block.stmts.insert(0, parse2(
@@ -46,25 +45,27 @@ pub fn apply_gpuspec(spec: &Meta, item: &mut GPUItem, errs: &mut Vec<TokenStream
                     }
                 ).unwrap());
 
-                item.input.block.stmts.insert(0,parse2( {
-                    let ty: Type = match &item.input.sig.output {
-                        ReturnType::Type(_, ty) => *(*ty).clone(),
-                        ReturnType::Default => parse2(quote! { () }).unwrap(),
-                    };
-                    quote_spanned! {
-                        ty.span() =>
-                        fn validate_correct_output(x: #ty) -> rsshader::shader_core::Vec4 {
-                            x
+                item.input.block.stmts.insert(
+                    0,
+                    parse2({
+                        let ty: Type = match &item.input.sig.output {
+                            ReturnType::Type(_, ty) => *(*ty).clone(),
+                            ReturnType::Default => parse2(quote! { () }).unwrap(),
+                        };
+                        quote_spanned! {
+                            ty.span() =>
+                            fn validate_correct_output(x: #ty) -> rsshader::shader_core::Vec4 {
+                                x
+                            }
                         }
-                    }
-                }).unwrap());
+                    })
+                    .unwrap(),
+                );
             }
         }
-        _ => errs.push(
-            quote_spanned! {
-                spec.span() =>
-                compile_error!("this item type can't be used as a gpu(fragment_fn) item");
-            }
-        ),
+        _ => errs.push(quote_spanned! {
+            spec.span() =>
+            compile_error!("this item type can't be used as a gpu(fragment_fn) item");
+        }),
     }
 }

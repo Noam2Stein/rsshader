@@ -21,9 +21,7 @@ mod utils {
             (&self.f)(f)
         }
     }
-    pub fn fn_display<>(f: impl Fn(&mut Formatter) -> fmt::Result) -> impl Display {
-        FnDisplay {
-            f
-        }
+    pub fn fn_display(f: impl Fn(&mut Formatter) -> fmt::Result) -> impl Display {
+        FnDisplay { f }
     }
 }

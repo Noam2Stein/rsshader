@@ -27,21 +27,28 @@ impl ToTokens for GPUStruct {
 
         let ident = &self.input.ident;
         let (impl_generics, ty_generics, where_clause) = self.input.generics.split_for_impl();
-    
-        let field_idents = self.input.fields.iter().map(|field| &field.ident).collect::<Box<[&Option<Ident>]>>();
-        let field_types = self.input.fields.iter().map(|field| &field.ty).collect::<Box<[&Type]>>();
-        let field_fragment_pos_attrs = (0..self.input.fields.len()).map(|field_index|
-            self.fragment_info.map_or(None, |fragment_info|
+
+        let field_idents = self
+            .input
+            .fields
+            .iter()
+            .map(|field| &field.ident)
+            .collect::<Box<[&Option<Ident>]>>();
+        let field_types = self
+            .input
+            .fields
+            .iter()
+            .map(|field| &field.ty)
+            .collect::<Box<[&Type]>>();
+        let field_fragment_pos_attrs = (0..self.input.fields.len()).map(|field_index| {
+            self.fragment_info.map_or(None, |fragment_info| {
                 if fragment_info.pos_field_index == field_index {
-                    Some(
-                        quote! { @builtin(position) }
-                    )
-                }
-                else {
+                    Some(quote! { @builtin(position) })
+                } else {
                     None
                 }
-            )
-        );
+            })
+        });
 
         tokens.extend(quote! {
             unsafe impl #impl_generics rsshader::constructs::GPUType for #ident #ty_generics #where_clause {
@@ -82,6 +89,6 @@ impl ToTokens for GPUStruct {
                     }
                 }
             );
-        }   
+        }
     }
 }

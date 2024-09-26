@@ -15,8 +15,7 @@ pub fn apply_gpuspec(spec: &Meta, item: &mut GPUItem, errs: &mut Vec<TokenStream
                         compile_error!("fn can't be a vertex_fn because it is already mapped to a pipeline stage");
                     }
                 )
-            }
-            else {
+            } else {
                 item.pipeline_stage = Some(PipelineStage::Vertex);
 
                 item.input.block.stmts.insert(0, parse2(
@@ -46,23 +45,25 @@ pub fn apply_gpuspec(spec: &Meta, item: &mut GPUItem, errs: &mut Vec<TokenStream
                     }
                 ).unwrap());
 
-                item.input.block.stmts.insert(0,parse2( {
-                    let ty: Type = match &item.input.sig.output {
-                        ReturnType::Type(_, ty) => *(*ty).clone(),
-                        ReturnType::Default => parse2(quote! { () }).unwrap(),
-                    };
-                    quote_spanned! {
-                        ty.span() =>
-                        <#ty as rsshader::constructs::Fragment>::validate();
-                    }
-                }).unwrap());
+                item.input.block.stmts.insert(
+                    0,
+                    parse2({
+                        let ty: Type = match &item.input.sig.output {
+                            ReturnType::Type(_, ty) => *(*ty).clone(),
+                            ReturnType::Default => parse2(quote! { () }).unwrap(),
+                        };
+                        quote_spanned! {
+                            ty.span() =>
+                            <#ty as rsshader::constructs::Fragment>::validate();
+                        }
+                    })
+                    .unwrap(),
+                );
             }
-        },
-        _ => errs.push(
-            quote_spanned! {
-                spec.span() =>
-                compile_error!("this item type can't be used as a gpu(vertex_fn) item");
-            }
-        ),
+        }
+        _ => errs.push(quote_spanned! {
+            spec.span() =>
+            compile_error!("this item type can't be used as a gpu(vertex_fn) item");
+        }),
     }
 }

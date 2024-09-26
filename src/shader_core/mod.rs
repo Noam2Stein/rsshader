@@ -4,9 +4,7 @@ use crate::constructs::*;
 
 pub use crate::gpu;
 
-pub trait Element: GPUType {
-
-}
+pub trait Element: GPUType {}
 macro_rules! element_ty {
     ($ty:ty, $wgsl_ident:literal) => {
         unsafe impl GPUType for $ty {
@@ -17,9 +15,7 @@ macro_rules! element_ty {
                 Ok(())
             }
         }
-        impl Element for $ty {
-
-        }       
+        impl Element for $ty {}
     };
 }
 element_ty!(f32, "f32");
