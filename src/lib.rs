@@ -1,5 +1,3 @@
-use std::marker::PhantomData;
-
 pub mod constructs;
 pub mod shader_core;
 
