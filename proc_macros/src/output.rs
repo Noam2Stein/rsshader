@@ -43,7 +43,7 @@ impl ToTokens for Output {
                 );
 
                 tokens.extend(quote! {
-                    impl #impl_generics rsshader::constructs::GPUType for #ident #ty_generics #where_clause {
+                    unsafe impl #impl_generics rsshader::constructs::GPUType for #ident #ty_generics #where_clause {
                         fn wgsl_ident(f: &mut std::fmt::Formatter) -> std::fmt::Result {
                             let mut hasher = std::hash::DefaultHasher::new();
                             <std::any::TypeId as std::hash::Hash>::hash(&std::any::TypeId::of::<Self>(), &mut hasher);
@@ -67,7 +67,7 @@ impl ToTokens for Output {
                 if let Some(_) = vertex_impl {
                     tokens.extend(
                         quote! {
-                            impl #impl_generics rsshader::constructs::Vertex for #ident #ty_generics #where_clause {
+                            unsafe impl #impl_generics rsshader::constructs::Vertex for #ident #ty_generics #where_clause {
 
                             }
                         }
@@ -76,7 +76,7 @@ impl ToTokens for Output {
                 if let Some(_) = fragment_impl {
                     tokens.extend(
                         quote! {
-                            impl #impl_generics rsshader::constructs::Fragment for #ident #ty_generics #where_clause {
+                            unsafe impl #impl_generics rsshader::constructs::Fragment for #ident #ty_generics #where_clause {
 
                             }
                         }

@@ -1,15 +1,15 @@
 use std::fmt::{self, Formatter};
 
-pub trait GPUType: 'static {
+pub unsafe trait GPUType: 'static {
     fn wgsl_ident(f: &mut Formatter) -> fmt::Result;
     fn wgsl_declaration(f: &mut Formatter) -> fmt::Result;
 
     fn validate() {}
 }
 
-pub trait Vertex: GPUType {
+pub unsafe trait Vertex: GPUType {
     fn validate() {}
 }
-pub trait Fragment: GPUType {
+pub unsafe trait Fragment: GPUType {
     fn validate() {}
 }

@@ -1,4 +1,4 @@
-use std::fmt::{self, Display, Formatter};
+use std::fmt::{self, Formatter};
 
 use crate::constructs::*;
 
@@ -9,9 +9,9 @@ pub trait Element: GPUType {
 }
 macro_rules! element_ty {
     ($ty:ty, $wgsl_ident:literal) => {
-        impl GPUType for $ty {
+        unsafe impl GPUType for $ty {
             fn wgsl_ident(f: &mut Formatter) -> fmt::Result {
-                $wgsl_ident.fmt(f)
+                write!(f, $wgsl_ident)
             }
             fn wgsl_declaration(_f: &mut Formatter) -> fmt::Result {
                 Ok(())
@@ -42,7 +42,7 @@ macro_rules! vec_ty {
                 pub $component: T,
             )+
         }
-        impl<T: Element> GPUType for $ident<T> {
+        unsafe impl<T: Element> GPUType for $ident<T> {
             fn wgsl_ident(f: &mut Formatter) -> fmt::Result {
                 write!(f, "{}<", $wgsl_ident)?;
                 T::wgsl_ident(f)?;
