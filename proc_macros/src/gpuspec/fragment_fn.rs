@@ -1,5 +1,5 @@
 use quote::quote;
-use syn::{parse2, FnArg, ReturnType, Type};
+use syn::{parse2, FnArg};
 
 use crate::fn_::PipelineFn;
 
@@ -33,23 +33,6 @@ pub fn apply_gpuspec(spec: &Meta, item: &mut GPUItem, errs: &mut Vec<TokenStream
                         compile_error!("a fragment fn has to have 1 arg");
                     });
                 }
-
-                item.input.block.stmts.insert(
-                    0,
-                    parse2({
-                        let ty: Type = match &item.input.sig.output {
-                            ReturnType::Type(_, ty) => *(*ty).clone(),
-                            ReturnType::Default => parse2(quote! { () }).unwrap(),
-                        };
-                        quote_spanned! {
-                            ty.span() =>
-                            fn validate_correct_output(x: #ty) -> rsshader::shader_core::Vec4 {
-                                x
-                            }
-                        }
-                    })
-                    .unwrap(),
-                );
             }
         }
         _ => errs.push(quote_spanned! {

@@ -74,6 +74,7 @@ impl ToTokens for GPUFn {
 
         self.input.to_tokens(tokens);
 
+        let ident = &self.input.sig.ident;
         let ty_ident = Ident::new(
             &format!("{}_as_gpu_fn", self.input.sig.ident),
             self.input.sig.ident.span(),
@@ -105,14 +106,19 @@ impl ToTokens for GPUFn {
                 PipelineFn::Vertex { vertex_ty, fragment_ty } => tokens.append_all(
                     quote! {
                         unsafe impl rsshader::constructs::VertexFn<#vertex_ty, #fragment_ty> for #ty_ident {
-
+                            fn invoke(input: #vertex_ty) -> #fragment_ty {
+                                #ident(input)
+                            }
                         }
                     }
                 ),
                 PipelineFn::Fragment { fragment_ty } => tokens.append_all(
-                    quote! {
+                    quote_spanned! {
+                        fragment_ty.span() =>
                         unsafe impl rsshader::constructs::FragmentFn<#fragment_ty> for #ty_ident {
-
+                            fn invoke(input: #fragment_ty) -> rsshader::shader_core::Vec4 {
+                                #ident(input)
+                            }
                         }
                     }
                 ),

@@ -25,8 +25,12 @@ pub unsafe trait Fragment: GPUType {
 }
 
 pub unsafe trait VertexFn<I: Vertex, O: Fragment>: GPUFn {
+    fn invoke(input: I) -> O;
+
     fn validate() {}
 }
 pub unsafe trait FragmentFn<I: Fragment>: GPUFn {
+    fn invoke(input: I) -> Vec4;
+
     fn validate() {}
 }
