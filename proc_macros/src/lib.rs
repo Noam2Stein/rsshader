@@ -1,4 +1,6 @@
-use proc_macro2::TokenStream;
+use std::mem;
+
+use proc_macro2::{Span, TokenStream};
 use quote::{quote, ToTokens};
 use syn::{parse_macro_input, punctuated::Punctuated, Item, Meta, Path};
 
@@ -40,4 +42,15 @@ pub fn gpufn(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     }
 
     path.to_token_stream().into()
+}
+
+#[doc = "replaces a span with a fallback if it is equal to the call site. may not always work."]
+fn span_fallback(span: Span, fallback: Span) -> Span {
+    if unsafe {
+        mem::transmute::<Span, [u8; 4]>(span) == mem::transmute::<Span, [u8; 4]>(Span::call_site())
+    } {
+        fallback
+    } else {
+        span
+    }
 }

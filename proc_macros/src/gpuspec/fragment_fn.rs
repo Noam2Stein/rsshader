@@ -13,7 +13,9 @@ pub fn apply_gpuspec(spec: &Meta, item: &mut GPUItem, errs: &mut Vec<TokenStream
                     }
                 )
             } else {
-                item.pipeline_stage = Some(PipelineFn::Fragment);
+                item.pipeline_stage = Some(PipelineFn::Fragment {
+                    spec_span: spec.span(),
+                });
 
                 if item.input.sig.inputs.len() != 1 {
                     errs.push(quote_spanned! {
