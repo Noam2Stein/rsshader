@@ -1,8 +1,8 @@
 use quote::quote_spanned;
-use syn::{parse2, spanned::Spanned, Ident, Local, Pat, Stmt};
+use syn::{parse2, spanned::Spanned, Local, Pat, Stmt};
 
 pub fn validation_stmt(input: &Local) -> Option<Stmt> {
-    let ident: &Ident = match &input.pat {
+    let ident = match &input.pat {
         Pat::Ident(pat) => &pat.ident,
         Pat::Type(pat) => match &*pat.pat {
             Pat::Ident(pat) => &pat.ident,
@@ -10,17 +10,18 @@ pub fn validation_stmt(input: &Local) -> Option<Stmt> {
                 return Some(
                     parse2(quote_spanned! {
                         pat.span() =>
-                        compile_error!("expected an ident")
+                        compile_error!("expected an ident");
                     })
                     .unwrap(),
                 )
             }
         },
+        Pat::Wild(_) => return None,
         pat => {
             return Some(
                 parse2(quote_spanned! {
                     pat.span() =>
-                    compile_error!("expected an ident")
+                    compile_error!("expected an ident");
                 })
                 .unwrap(),
             )
