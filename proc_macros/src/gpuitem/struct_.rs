@@ -1,5 +1,5 @@
 use quote::{quote, quote_spanned, ToTokens};
-use syn::{spanned::Spanned, Ident, ItemStruct, Type};
+use syn::{spanned::Spanned, Ident, ItemStruct};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct FragmentInfo {
@@ -28,50 +28,23 @@ impl ToTokens for GPUStruct {
         let ident = &self.input.ident;
         let (impl_generics, ty_generics, where_clause) = self.input.generics.split_for_impl();
 
-        let field_idents = self
-            .input
-            .fields
-            .iter()
-            .map(|field| &field.ident)
-            .collect::<Box<[&Option<Ident>]>>();
-        let field_types = self
-            .input
-            .fields
-            .iter()
-            .map(|field| &field.ty)
-            .collect::<Box<[&Type]>>();
-        let field_fragment_pos_attrs = self.input.fields.iter().map(|field| {
-            if let Some(fragment_info) = &self.fragment_info {
-                if fragment_info.pos_field == field.ident {
-                    Some(quote! { @builtin(position) })
-                } else {
-                    None
-                }
-            }
-            else {
-                None
+        let fields = self.input.fields.iter().map(|field| {
+            let ident = field.ident.clone().unwrap();
+            let ty = &field.ty;
+            quote! {
+                rsshader::constructs::GPUFieldInfo::new::<#ty>(stringify!(#ident))
             }
         });
 
         tokens.extend(quote! {
-            unsafe impl #impl_generics rsshader::constructs::GPUType for #ident #ty_generics #where_clause {
-                fn wgsl_ident(f: &mut std::fmt::Formatter) -> std::fmt::Result {
-                    let mut hasher = std::hash::DefaultHasher::new();
-                    <std::any::TypeId as std::hash::Hash>::hash(&std::any::TypeId::of::<Self>(), &mut hasher);
-                    write!(f, "Type___{}", <std::hash::DefaultHasher as std::hash::Hasher>::finish(&hasher))
-                }
-                fn wgsl_declaration(f: &mut std::fmt::Formatter) -> std::fmt::Result {
-                    write!(f, "struct ")?;
-                    Self::wgsl_ident(f)?;
-                    writeln!(f, " {{")?;
+            unsafe impl #impl_generics rsshader::constructs::GPUType for #ident #ty_generics #where_clause {}
+
+            unsafe impl #impl_generics rsshader::constructs::GPUStruct for #ident #ty_generics #where_clause {
+                const FIELDS: &'static [rsshader::constructs::GPUFieldInfo] = &[
                     #(
-                        write!(f, "\t{}", stringify!(#field_fragment_pos_attrs #field_idents: ))?;
-                        <#field_types as rsshader::constructs::GPUType>::wgsl_ident(f)?;
-                        writeln!(f, ",")?;
+                        #fields,
                     )*
-    
-                    write!(f, "}}")
-                }
+                ];
             }
         });
 
@@ -87,7 +60,7 @@ impl ToTokens for GPUStruct {
         if let Some(fragment_info) = &self.fragment_info {
             let pos = fragment_info.pos_field.clone().map_or_else(
                 || quote! { unreachable!() },
-                |pos_field| quote_spanned! { pos_field.span() => self.#pos_field }
+                |pos_field| quote_spanned! { pos_field.span() => self.#pos_field },
             );
             tokens.extend(
                 quote_spanned! {

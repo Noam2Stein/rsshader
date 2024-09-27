@@ -5,3 +5,4 @@ edition = "2021"
 
 [dependencies]
 rsshader_proc_macros = { path = "proc_macros" }
+typeid = "1.0.2"

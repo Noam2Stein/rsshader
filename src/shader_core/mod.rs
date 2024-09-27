@@ -1,5 +1,3 @@
-use std::fmt::{self, Formatter};
-
 use crate::constructs::*;
 
 pub use crate::gpu;
@@ -7,14 +5,7 @@ pub use crate::gpu;
 pub trait Element: GPUType + Copy + PartialEq + PartialOrd + Default {}
 macro_rules! element_ty {
     ($ty:ty, $wgsl_ident:literal) => {
-        unsafe impl GPUType for $ty {
-            fn wgsl_ident(f: &mut Formatter) -> fmt::Result {
-                write!(f, $wgsl_ident)
-            }
-            fn wgsl_declaration(_f: &mut Formatter) -> fmt::Result {
-                Ok(())
-            }
-        }
+        unsafe impl GPUType for $ty {}
         impl Element for $ty {}
     };
 }
@@ -39,16 +30,7 @@ macro_rules! vec_ty {
                 pub $component: T,
             )+
         }
-        unsafe impl<T: Element> GPUType for $ident<T> {
-            fn wgsl_ident(f: &mut Formatter) -> fmt::Result {
-                write!(f, "{}<", $wgsl_ident)?;
-                T::wgsl_ident(f)?;
-                write!(f, ">")
-            }
-            fn wgsl_declaration(_f: &mut Formatter) -> fmt::Result {
-                Ok(())
-            }
-        }
+        unsafe impl<T: Element> GPUType for $ident<T> {}
     };
 }
 vec_ty!(Vec2(x, y), "vec2");
