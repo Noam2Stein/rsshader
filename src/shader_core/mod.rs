@@ -1,5 +1,8 @@
 use crate::constructs::*;
 
+pub mod pipeline;
+pub use pipeline::*;
+
 pub use rsshader_proc_macros::{gpu, gpufn};
 
 pub trait Element: GPUType + Copy + PartialEq + PartialOrd + Default {}
