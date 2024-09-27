@@ -1,6 +1,10 @@
+use std::iter::once;
+
 use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned, ToTokens, TokenStreamExt};
-use syn::{parse2, spanned::Spanned, FnArg, Ident, ItemFn, Pat, ReturnType, Stmt, Type};
+use syn::{parse2, spanned::Spanned, FnArg, Ident, ItemFn, ReturnType, Stmt, Type};
+
+mod local;
 
 #[derive(Clone)]
 pub enum PipelineFn {
@@ -15,81 +19,31 @@ pub struct GPUFn {
 }
 impl From<ItemFn> for GPUFn {
     fn from(mut value: ItemFn) -> Self {
-        value.block.stmts = value.block.stmts.into_iter().map(|stmt|
-            [
-                stmt.clone(),
-                parse2(
-                    match stmt {
-                        Stmt::Local(stmt) => {
-                            match &stmt.pat {
-                                Pat::Type(pat) => {
-                                    if let Pat::Ident(ident) = &*pat.pat {
-                                        quote! {
-                                            const {
-                                                const fn validate_let<T: GPUType>(_x: &T) {}
+        value.block.stmts = value.block.stmts.into_iter().map(|stmt| {
+            let validation_stmt = match &stmt {
+                Stmt::Expr(_, _) => None,
+                Stmt::Item(_) => None,
+                Stmt::Local(input) => local::validation_stmt(input),
+                Stmt::Macro(_) => None,
+            };
 
-                                                validate_let(#ident)
-                                            };
-                                        }
-                                    }
-                                    else {
-                                        quote_spanned! {
-                                            pat.pat.span() =>
-                                            compile_error!("expected an ident");
-                                        }
-                                    }
-                                },
-                                Pat::Ident(ident) => {
-                                    quote! {
-                                        const {
-                                            const fn validate_let<T: GPUType>(_x: &T) {}
-
-                                            validate_let(#ident)
-                                        };
-                                    }
-                                }
-                                _ => {
-                                    quote_spanned! {
-                                        stmt.pat.span() =>
-                                        compile_error!("unsupported pat type");
-                                    }
-                                }
-                            }
-                        }
-                        _ => {
-                            TokenStream::new()
-                        }
-                    }
-                ).unwrap()
-            ].into_iter()
-        ).flatten().collect();
+            once(stmt).chain(validation_stmt.into_iter())
+        }).flatten().collect();
 
         value.block.stmts.insert(
             0,
             parse2(
-                value
-                    .sig
-                    .inputs
-                    .iter()
-                    .map(|arg| match arg {
-                        FnArg::Typed(ty) => {
-                            let ty = &ty.ty;
-                            quote_spanned! {
-                                ty.span() =>
-                                <#ty as rsshader::constructs::GPUType>::validate();
-                            }
+                value.sig.inputs.iter().map(|arg| {
+                        let ty = match arg {
+                            FnArg::Typed(ty) => &ty.ty,
+                            FnArg::Receiver(receiver) => &*receiver.ty,
+                        };
+                        quote_spanned! {
+                            ty.span() =>
+                            <#ty as rsshader::constructs::GPUType>::validate();
                         }
-                        FnArg::Receiver(receiver) => {
-                            let ty = &*receiver.ty;
-                            quote_spanned! {
-                                ty.span() =>
-                                <#ty as rsshader::constructs::GPUType>::validate();
-                            }
-                        }
-                    })
-                    .collect::<TokenStream>(),
-            )
-            .unwrap(),
+                    }).collect::<TokenStream>(),
+            ).unwrap(),
         );
 
         value.block.stmts.insert(
