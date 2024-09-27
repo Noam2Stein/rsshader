@@ -7,7 +7,7 @@ pub struct RenderPipeline<V: Vertex> {
     lazylock: LazyLock<String>,
 }
 impl<V: Vertex> RenderPipeline<V> {
-    pub const fn new<VFn: VertexFn<I = V>, FFn: FragmentFn<I = VFn::O>>() -> Self {
+    pub const fn new<VFn: VertexFn<Input = V>, FFn: FragmentFn<Input = VFn::Output>>() -> Self {
         Self {
             danny: unsafe { mem::transmute(()) },
             lazylock: LazyLock::new(|| format!("1 2 3 4 5 _ 7 _")),

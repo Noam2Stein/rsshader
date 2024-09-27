@@ -1,6 +1,3 @@
-use quote::quote;
-use syn::{parse2, FnArg};
-
 use crate::fn_::PipelineFn;
 
 use super::*;
@@ -16,16 +13,7 @@ pub fn apply_gpuspec(spec: &Meta, item: &mut GPUItem, errs: &mut Vec<TokenStream
                     }
                 )
             } else {
-                item.pipeline_stage = Some(PipelineFn::Fragment {
-                    fragment_ty: if let Some(input) = item.input.sig.inputs.first() {
-                        match input {
-                            FnArg::Typed(ty) => ty.ty.clone(),
-                            FnArg::Receiver(receiver) => receiver.ty.clone(),
-                        }
-                    } else {
-                        parse2(quote! { () }).unwrap()
-                    },
-                });
+                item.pipeline_stage = Some(PipelineFn::Fragment);
 
                 if item.input.sig.inputs.len() != 1 {
                     errs.push(quote_spanned! {

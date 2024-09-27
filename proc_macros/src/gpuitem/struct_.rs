@@ -32,7 +32,7 @@ impl ToTokens for GPUStruct {
             let ident = field.ident.clone().unwrap();
             let ty = &field.ty;
             quote! {
-                rsshader::constructs::GPUFieldInfo::new::<#ty>(stringify!(#ident))
+                rsshader::constructs::GPUField::new::<#ty>(stringify!(#ident))
             }
         });
 
@@ -40,7 +40,7 @@ impl ToTokens for GPUStruct {
             unsafe impl #impl_generics rsshader::constructs::GPUType for #ident #ty_generics #where_clause {}
 
             unsafe impl #impl_generics rsshader::constructs::GPUStruct for #ident #ty_generics #where_clause {
-                const FIELDS: &'static [rsshader::constructs::GPUFieldInfo] = &[
+                const FIELDS: &'static [rsshader::constructs::GPUField] = &[
                     #(
                         #fields,
                     )*

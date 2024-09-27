@@ -2,19 +2,14 @@ use std::iter::once;
 
 use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned, ToTokens, TokenStreamExt};
-use syn::{parse2, spanned::Spanned, FnArg, Ident, ItemFn, ReturnType, Stmt, Type};
+use syn::{parse2, spanned::Spanned, FnArg, Ident, ItemFn, Pat, ReturnType, Stmt, Type};
 
 mod local;
 
 #[derive(Clone)]
 pub enum PipelineFn {
-    Vertex {
-        vertex_ty: Box<Type>,
-        fragment_ty: Box<Type>,
-    },
-    Fragment {
-        fragment_ty: Box<Type>,
-    },
+    Vertex,
+    Fragment,
 }
 
 #[derive(Clone)]
@@ -95,40 +90,91 @@ impl ToTokens for GPUFn {
         let ident = &self.input.sig.ident;
         let ty_ident = gpufn(ident);
 
+        let inputs = self.input.sig.inputs.iter().map(|arg| {
+            let ident = match arg {
+                FnArg::Typed(arg) => match &*arg.pat {
+                    Pat::Ident(pat) => {
+                        let ident = &pat.ident;
+                        quote! { stringify!(#ident) }
+                    }
+                    pat => quote_spanned! {
+                        pat.span() =>
+                        compile_error!("expected an ident")
+                    },
+                },
+                FnArg::Receiver(_) => quote! { "self" },
+            };
+            let ty = match arg {
+                FnArg::Typed(arg) => &*arg.ty,
+                FnArg::Receiver(arg) => &*arg.ty,
+            };
+            quote_spanned! {
+                ty.span() =>
+                rsshader::constructs::GPUArgument::new::<#ty>(stringify!(#ident))
+            }
+        });
+
+        let output = match &self.input.sig.output {
+            ReturnType::Default => quote! { () },
+            ReturnType::Type(_, ty) => ty.to_token_stream(),
+        };
+
         tokens.append_all(quote! {
-            #[doc(hidden)]
             #[allow(non_camel_case_types)]
             pub struct #ty_ident {
 
             }
-            unsafe impl rsshader::constructs::GPUFn for #ty_ident {}
+            unsafe impl rsshader::constructs::GPUFn for #ty_ident {
+                const INPUTS: &'static [rsshader::constructs::GPUArgument] = &[
+                    #(
+                        #inputs,
+                    )*
+                ];
+
+                type Output = #output;
+            }
         });
 
         if let Some(pipeline_stage) = &self.pipeline_stage {
             match pipeline_stage {
-                PipelineFn::Vertex {
-                    vertex_ty,
-                    fragment_ty,
-                } => tokens.append_all(quote! {
-                    unsafe impl rsshader::constructs::VertexFn for #ty_ident {
-                        type I = #vertex_ty;
-                        type O = #fragment_ty;
-
-                        fn invoke(input: #vertex_ty) -> #fragment_ty {
-                            #ident(input)
+                PipelineFn::Vertex => {
+                    let input = match self.input.sig.inputs.first() {
+                        Some(input) => match input {
+                            FnArg::Typed(input) => &*input.ty,
+                            FnArg::Receiver(input) => &*input.ty,
+                        },
+                        None => &parse2(quote! { () }).unwrap(),
+                    };
+                    tokens.append_all(quote_spanned! {
+                        output.span() =>
+                        unsafe impl rsshader::constructs::VertexFn for #ty_ident
+                    });
+                    tokens.append_all(quote_spanned! {
+                        input.span() =>
+                        {
+                            type Input = #input;
                         }
-                    }
-                }),
-                PipelineFn::Fragment { fragment_ty } => tokens.append_all(quote_spanned! {
-                    fragment_ty.span() =>
-                    unsafe impl rsshader::constructs::FragmentFn for #ty_ident {
-                        type I = #fragment_ty;
-
-                        fn invoke(input: #fragment_ty) -> rsshader::shader_core::Vec4 {
-                            #ident(input)
+                    });
+                }
+                PipelineFn::Fragment => {
+                    let input = match self.input.sig.inputs.first() {
+                        Some(input) => match input {
+                            FnArg::Typed(input) => &*input.ty,
+                            FnArg::Receiver(input) => &*input.ty,
+                        },
+                        None => &parse2(quote! { () }).unwrap(),
+                    };
+                    tokens.append_all(quote_spanned! {
+                        output.span() =>
+                        unsafe impl rsshader::constructs::FragmentFn for #ty_ident
+                    });
+                    tokens.append_all(quote_spanned! {
+                        input.span() =>
+                        {
+                            type Input = #input;
                         }
-                    }
-                }),
+                    });
+                }
             }
         }
     }
