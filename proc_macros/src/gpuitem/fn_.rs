@@ -1,6 +1,6 @@
 use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned, ToTokens, TokenStreamExt};
-use syn::{parse2, spanned::Spanned, FnArg, Ident, ItemFn, ReturnType, Type};
+use syn::{parse2, spanned::Spanned, FnArg, Ident, ItemFn, Pat, ReturnType, Stmt, Type};
 
 #[derive(Clone)]
 pub enum PipelineFn {
@@ -77,6 +77,46 @@ impl ToTokens for GPUFn {
         let ident = &self.input.sig.ident;
         let ty_ident = gpufn(ident);
 
+        let write_stmts = self.input.block.stmts.iter().map(|stmt|
+            match stmt {
+                Stmt::Local(stmt) => {
+                    match &stmt.pat {
+                        Pat::Type(pat) => {
+                            if let Pat::Ident(ident) = &*pat.pat {
+                                let ty = &pat.ty;
+                                quote! {
+                                    write!(f, "var {}: ", stringify!(#ident))?;
+                                    <#ty as rsshader::constructs::GPUType>::wgsl_ident(f)?;
+                                    writeln!(f, ";")?;
+                                }
+                            }
+                            else {
+                                quote_spanned! {
+                                    pat.pat.span() =>
+                                    compile_error!("expected an ident");
+                                }
+                            }
+                        },
+                        Pat::Ident(ident) => {
+                            quote_spanned! {
+                                ident.span() =>
+                                compile_error!("expected the type of variable");
+                            }
+                        }
+                        _ => {
+                            quote_spanned! {
+                                stmt.pat.span() =>
+                                compile_error!("unsupported pat type");
+                            }
+                        }
+                    }
+                }
+                _ => {
+                    TokenStream::new()
+                }
+            }
+        ).collect::<TokenStream>();
+
         tokens.append_all(
             quote! {
                 #[doc(hidden)]
@@ -93,7 +133,11 @@ impl ToTokens for GPUFn {
                     fn wgsl_declaration(f: &mut std::fmt::Formatter) -> std::fmt::Result {
                         write!(f, "fn ")?;
                         Self::wgsl_ident(f)?;
-                        writeln!(f, "() {{ }}")
+                        writeln!(f, "() {{")?;
+                        
+                        #write_stmts
+
+                        writeln!(f, "}}")
                     }
                 }
             }
