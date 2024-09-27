@@ -30,4 +30,4 @@ pub fn fs_main(input: Fragment) -> Vec4 {
 }
 
 pub const HELLO_TRIANGLE: RenderPipeline<Vertex> =
-    RenderPipeline::new::<Fragment, gpufn!(vs_main), gpufn!(fs_main)>();
+    RenderPipeline::new::<gpufn!(vs_main), gpufn!(fs_main)>();

@@ -103,7 +103,10 @@ impl ToTokens for GPUFn {
             match pipeline_stage {
                 PipelineFn::Vertex { vertex_ty, fragment_ty } => tokens.append_all(
                     quote! {
-                        unsafe impl rsshader::constructs::VertexFn<#vertex_ty, #fragment_ty> for #ty_ident {
+                        unsafe impl rsshader::constructs::VertexFn for #ty_ident {
+                            type I = #vertex_ty;
+                            type O = #fragment_ty;
+
                             fn invoke(input: #vertex_ty) -> #fragment_ty {
                                 #ident(input)
                             }
@@ -113,7 +116,9 @@ impl ToTokens for GPUFn {
                 PipelineFn::Fragment { fragment_ty } => tokens.append_all(
                     quote_spanned! {
                         fragment_ty.span() =>
-                        unsafe impl rsshader::constructs::FragmentFn<#fragment_ty> for #ty_ident {
+                        unsafe impl rsshader::constructs::FragmentFn for #ty_ident {
+                            type I = #fragment_ty;
+
                             fn invoke(input: #fragment_ty) -> rsshader::shader_core::Vec4 {
                                 #ident(input)
                             }
