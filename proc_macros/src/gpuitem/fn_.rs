@@ -15,6 +15,55 @@ pub struct GPUFn {
 }
 impl From<ItemFn> for GPUFn {
     fn from(mut value: ItemFn) -> Self {
+        value.block.stmts = value.block.stmts.into_iter().map(|stmt|
+            [
+                stmt.clone(),
+                parse2(
+                    match stmt {
+                        Stmt::Local(stmt) => {
+                            match &stmt.pat {
+                                Pat::Type(pat) => {
+                                    if let Pat::Ident(ident) = &*pat.pat {
+                                        quote! {
+                                            const {
+                                                const fn validate_let<T: GPUType>(_x: &T) {}
+
+                                                validate_let(#ident)
+                                            };
+                                        }
+                                    }
+                                    else {
+                                        quote_spanned! {
+                                            pat.pat.span() =>
+                                            compile_error!("expected an ident");
+                                        }
+                                    }
+                                },
+                                Pat::Ident(ident) => {
+                                    quote! {
+                                        const {
+                                            const fn validate_let<T: GPUType>(_x: &T) {}
+
+                                            validate_let(#ident)
+                                        };
+                                    }
+                                }
+                                _ => {
+                                    quote_spanned! {
+                                        stmt.pat.span() =>
+                                        compile_error!("unsupported pat type");
+                                    }
+                                }
+                            }
+                        }
+                        _ => {
+                            TokenStream::new()
+                        }
+                    }
+                ).unwrap()
+            ].into_iter()
+        ).flatten().collect();
+
         value.block.stmts.insert(
             0,
             parse2(
@@ -77,46 +126,6 @@ impl ToTokens for GPUFn {
         let ident = &self.input.sig.ident;
         let ty_ident = gpufn(ident);
 
-        let write_stmts = self.input.block.stmts.iter().map(|stmt|
-            match stmt {
-                Stmt::Local(stmt) => {
-                    match &stmt.pat {
-                        Pat::Type(pat) => {
-                            if let Pat::Ident(ident) = &*pat.pat {
-                                let ty = &pat.ty;
-                                quote! {
-                                    write!(f, "var {}: ", stringify!(#ident))?;
-                                    <#ty as rsshader::constructs::GPUType>::wgsl_ident(f)?;
-                                    writeln!(f, ";")?;
-                                }
-                            }
-                            else {
-                                quote_spanned! {
-                                    pat.pat.span() =>
-                                    compile_error!("expected an ident");
-                                }
-                            }
-                        },
-                        Pat::Ident(ident) => {
-                            quote_spanned! {
-                                ident.span() =>
-                                compile_error!("expected the type of variable");
-                            }
-                        }
-                        _ => {
-                            quote_spanned! {
-                                stmt.pat.span() =>
-                                compile_error!("unsupported pat type");
-                            }
-                        }
-                    }
-                }
-                _ => {
-                    TokenStream::new()
-                }
-            }
-        ).collect::<TokenStream>();
-
         tokens.append_all(
             quote! {
                 #[doc(hidden)]
@@ -134,8 +143,6 @@ impl ToTokens for GPUFn {
                         write!(f, "fn ")?;
                         Self::wgsl_ident(f)?;
                         writeln!(f, "() {{")?;
-                        
-                        #write_stmts
 
                         writeln!(f, "}}")
                     }
