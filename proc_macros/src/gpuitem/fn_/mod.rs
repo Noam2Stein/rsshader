@@ -1,8 +1,7 @@
 use std::iter::once;
 
-use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned, ToTokens, TokenStreamExt};
-use syn::{parse2, spanned::Spanned, FnArg, Ident, ItemFn, Pat, ReturnType, Stmt, Type};
+use syn::{parse2, spanned::Spanned, FnArg, Ident, ItemFn, Pat, ReturnType, Stmt};
 
 mod local;
 
@@ -35,43 +34,6 @@ impl From<ItemFn> for GPUFn {
             })
             .flatten()
             .collect();
-
-        value.block.stmts.insert(
-            0,
-            parse2(
-                value
-                    .sig
-                    .inputs
-                    .iter()
-                    .map(|arg| {
-                        let ty = match arg {
-                            FnArg::Typed(ty) => &ty.ty,
-                            FnArg::Receiver(receiver) => &*receiver.ty,
-                        };
-                        quote_spanned! {
-                            ty.span() =>
-                            <#ty as rsshader::constructs::GPUType>::validate();
-                        }
-                    })
-                    .collect::<TokenStream>(),
-            )
-            .unwrap(),
-        );
-
-        value.block.stmts.insert(
-            0,
-            parse2({
-                let ty: Type = match &value.sig.output {
-                    ReturnType::Type(_, ty) => *(*ty).clone(),
-                    ReturnType::Default => parse2(quote! { () }).unwrap(),
-                };
-                quote_spanned! {
-                    ty.span() =>
-                    <#ty as rsshader::constructs::GPUType>::validate();
-                }
-            })
-            .unwrap(),
-        );
 
         Self {
             input: value,
