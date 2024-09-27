@@ -1,6 +1,6 @@
 use proc_macro2::TokenStream;
-use quote::quote;
-use syn::{parse_macro_input, punctuated::Punctuated, Item, Meta};
+use quote::{quote, ToTokens};
+use syn::{parse_macro_input, punctuated::Punctuated, Item, Meta, Path};
 
 mod gpuitem;
 use gpuitem::*;
@@ -30,4 +30,14 @@ pub fn gpu(
         )*
     }
     .into()
+}
+
+#[proc_macro]
+pub fn gpufn(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let mut path = parse_macro_input!(input as Path);
+    if let Some(last) = path.segments.last_mut() {
+        last.ident = gpuitem::fn_::gpufn(&last.ident)
+    }
+
+    path.to_token_stream().into()
 }

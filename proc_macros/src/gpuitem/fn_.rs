@@ -75,13 +75,11 @@ impl ToTokens for GPUFn {
         self.input.to_tokens(tokens);
 
         let ident = &self.input.sig.ident;
-        let ty_ident = Ident::new(
-            &format!("{}_as_gpu_fn", self.input.sig.ident),
-            self.input.sig.ident.span(),
-        );
+        let ty_ident = gpufn(ident);
 
         tokens.append_all(
             quote! {
+                #[doc(hidden)]
                 #[allow(non_camel_case_types)]
                 pub struct #ty_ident {
                     
@@ -125,4 +123,8 @@ impl ToTokens for GPUFn {
             }
         }
     }
+}
+
+pub fn gpufn(ident: &Ident) -> Ident {
+    Ident::new(&format!("{}_GPUFn", ident.to_string()), ident.span())
 }

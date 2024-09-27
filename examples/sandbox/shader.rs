@@ -1,4 +1,4 @@
-use rsshader::{shader_core::*, RenderPipeline};
+use rsshader::{gpufn, shader_core::*, RenderPipeline};
 
 #[gpu(vertex)]
 pub struct Vertex {
@@ -30,4 +30,4 @@ pub fn fs_main(input: Fragment) -> Vec4 {
 }
 
 pub const HELLO_TRIANGLE: RenderPipeline<Vertex> =
-    RenderPipeline::new::<Fragment, vs_main_as_gpu_fn, fs_main_as_gpu_fn>();
+    RenderPipeline::new::<Fragment, gpufn!(vs_main), gpufn!(fs_main)>();
