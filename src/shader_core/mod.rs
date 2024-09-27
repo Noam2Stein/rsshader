@@ -1,6 +1,6 @@
 use crate::constructs::*;
 
-pub use crate::gpu;
+pub use rsshader_proc_macros::{gpu, gpufn};
 
 pub trait Element: GPUType + Copy + PartialEq + PartialOrd + Default {}
 macro_rules! element_ty {
