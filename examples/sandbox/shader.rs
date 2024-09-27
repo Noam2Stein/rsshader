@@ -13,7 +13,7 @@ pub struct Fragment {
 }
 
 #[gpu(vertex_fn)]
-pub fn vs_main(input: Vertex) -> Vertex {
+pub fn vs_main(input: Vertex) -> Fragment {
     Fragment {
         pos: Vec4 {
             x: input.pos.x,
