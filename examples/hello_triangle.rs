@@ -28,5 +28,5 @@ const HELLO_TRIANGLE: RenderPipeline<Vertex> =
     RenderPipeline::new::<gpufn!(vs_main), gpufn!(fs_main)>().optimize::<Wgsl>();
 
 fn main() {
-    println!("{}", HELLO_TRIANGLE.format::<Wgsl>().as_str())
+    println!("{}", HELLO_TRIANGLE.format::<Wgsl>().formatted_str())
 }

@@ -7,11 +7,13 @@ pub struct Wgsl {
     s: String,
 }
 impl Wgsl {
-    pub fn as_str(&self) -> &str {
-        &self.s
+    #[inline(always)]
+    pub fn str(&self) -> String {
+        self.s.clone()
     }
-    pub fn into_inner(self) -> String {
-        self.s
+    #[inline(always)]
+    pub fn formatted_str(&self) -> String {
+        self.s.clone()
     }
 
     pub(crate) fn from_render_pipeline<V: GPUVertex>(_pipeline: &RenderPipeline<V>) -> Self {
