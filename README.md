@@ -1,4 +1,6 @@
-*** everything here is unfinished and not ready for development, and anything mentioned in the README may not be implemented yet. ***
+*** everything here is unfinished and not ready for production, and anything mentioned in the README may not be implemented yet. ***
+
+[Trello board](https://trello.com/b/NSeN2Yrr/rsshader)
 
 # rsshader
 
