@@ -1,4 +1,4 @@
-use rsshader::shader_core::*;
+use rsshader::{format::Wgsl, shader_core::*};
 
 #[gpu(vertex)]
 struct Vertex {
@@ -25,8 +25,8 @@ fn fs_main(fragment: Fragment) -> Vec4 {
 }
 
 const HELLO_TRIANGLE: RenderPipeline<Vertex> =
-    RenderPipeline::new::<vs_main_GPUFn, fs_main_GPUFn>();
+    RenderPipeline::new::<vs_main_GPUFn, fs_main_GPUFn>().optimize::<Wgsl>();
 
 fn main() {
-    println!("{}", HELLO_TRIANGLE.wgsl())
+    println!("{}", HELLO_TRIANGLE.format::<Wgsl>().as_str())
 }

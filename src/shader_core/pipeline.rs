@@ -1,19 +1,22 @@
-use std::{marker::PhantomData, mem, sync::LazyLock};
+use std::{marker::PhantomData, mem, sync::Mutex};
 
-use crate::constructs::{FragmentFn, Vertex, VertexFn};
+use crate::{constructs::*, format::*};
 
 pub struct RenderPipeline<V: Vertex> {
     danny: PhantomData<V>,
-    lazylock: LazyLock<String>,
+    pub(crate) wgsl: Mutex<Option<Wgsl>>,
 }
 impl<V: Vertex> RenderPipeline<V> {
     pub const fn new<VFn: VertexFn<Input = V>, FFn: FragmentFn<Input = VFn::Output>>() -> Self {
         Self {
             danny: unsafe { mem::transmute(()) },
-            lazylock: LazyLock::new(|| format!("1 2 3 4 5 _ 7 _")),
+            wgsl: Mutex::new(None),
         }
     }
-    pub fn wgsl(&self) -> &str {
-        &self.lazylock
+    pub const fn optimize<F: RenderPipelineFormat>(self) -> Self {
+        self
+    }
+    pub fn format<F: RenderPipelineFormat>(&self) -> F {
+        F::get(self)
     }
 }

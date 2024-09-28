@@ -1,4 +1,4 @@
-use rsshader::shader_core::*;
+use rsshader::{format::Wgsl, shader_core::*};
 
 #[gpu(vertex)]
 struct Vertex {
@@ -24,8 +24,9 @@ fn fs_main(fragment: Fragment) -> Vec4 {
     fragment.color
 }
 
-const SANDBOX: RenderPipeline<Vertex> = RenderPipeline::new::<vs_main_GPUFn, fs_main_GPUFn>();
+const SANDBOX: RenderPipeline<Vertex> =
+    RenderPipeline::new::<vs_main_GPUFn, fs_main_GPUFn>().optimize::<Wgsl>();
 
 fn main() {
-    println!("{}", SANDBOX.wgsl())
+    println!("{}", SANDBOX.format::<Wgsl>().as_str())
 }
