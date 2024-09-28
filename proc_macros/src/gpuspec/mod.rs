@@ -14,6 +14,7 @@ pub fn apply_gpuspec(spec: &Meta, item: &mut GPUItem, errs: &mut Vec<TokenStream
     match spec {
         Meta::Path(spec_path) => match spec_path.get_ident() {
             Some(spec_ident) => match spec_ident.to_string().as_str() {
+                "lerp" => lerp::apply_gpuspec(spec, item, errs),
                 "vertex" => vertex::apply_gpuspec(spec, item, errs),
                 "fragment" => fragment::apply_gpuspec(spec, item, errs),
                 "vertex_fn" => vertex_fn::apply_gpuspec(spec, item, errs),
