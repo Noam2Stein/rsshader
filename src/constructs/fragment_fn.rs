@@ -1,7 +1,7 @@
 use super::*;
 
-pub unsafe trait FragmentFn: GPUFn<Output = Vec4> {
-    type Input: Fragment;
+pub unsafe trait GPUFragmentFn: GPUFn<Output = Vec4> {
+    type Input: GPUFragment;
 
     fn validate() {}
 }

@@ -14,14 +14,14 @@ impl Wgsl {
         self.s
     }
 
-    pub(crate) fn from_render_pipeline<V: Vertex>(_pipeline: &RenderPipeline<V>) -> Self {
+    pub(crate) fn from_render_pipeline<V: GPUVertex>(_pipeline: &RenderPipeline<V>) -> Self {
         Self {
             s: format!("1 & 2 & 3 & 4 1 & & 3 4 & & 2 3 & 2 &"),
         }
     }
 }
 impl RenderPipelineFormat for Wgsl {
-    fn get<V: Vertex>(pipeline: &RenderPipeline<V>) -> Self {
+    fn get<V: GPUVertex>(pipeline: &RenderPipeline<V>) -> Self {
         let mut wgsl = pipeline.wgsl.lock().unwrap();
         if let Some(output) = &*wgsl {
             output.clone()

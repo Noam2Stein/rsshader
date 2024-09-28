@@ -25,6 +25,19 @@ element_ty!(i32, "i32");
 element_ty!(i64, "i64");
 element_ty!(i128, "i128");
 
+unsafe impl GPULerp for f32 {
+    #[inline(always)]
+    fn lerp(&self, other: &Self, t: f32) -> Self {
+        self * (1.0 - t) + other * t
+    }
+}
+unsafe impl GPULerp for f64 {
+    #[inline(always)]
+    fn lerp(&self, other: &Self, t: f32) -> Self {
+        self * (1.0 - t) as f64 + other * t as f64
+    }
+}
+
 macro_rules! vec_ty {
     ($ident:ident($($component:ident), +), $wgsl_ident:literal) => {
         #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -34,6 +47,17 @@ macro_rules! vec_ty {
             )+
         }
         unsafe impl<T: Element> GPUType for $ident<T> {}
+
+        unsafe impl<T: Element + GPULerp> GPULerp for $ident<T> {
+            #[inline(always)]
+            fn lerp(&self, other: &Self, t: f32) -> Self {
+                Self {
+                    $(
+                        $component: self.$component.lerp(&other.$component, t),
+                    )+
+                }
+            }
+        }
     };
 }
 vec_ty!(Vec2(x, y), "vec2");

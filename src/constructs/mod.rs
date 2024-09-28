@@ -7,6 +7,9 @@ pub use struct_::*;
 mod fn_;
 pub use fn_::*;
 
+mod lerp;
+pub use lerp::*;
+
 mod vertex;
 pub use vertex::*;
 mod fragment;

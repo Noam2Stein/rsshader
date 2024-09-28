@@ -1,7 +1,7 @@
 use super::*;
 use crate as rsshader;
 
-pub unsafe trait Fragment: GPUType {
+pub unsafe trait GPUFragment: GPULerp {
     fn pos(&self) -> Vec4;
 
     fn validate() {}

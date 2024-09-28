@@ -117,7 +117,7 @@ impl ToTokens for GPUFn {
                     };
                     tokens.append_all(quote_spanned! {
                         span_fallback(output.span(), *spec_span) =>
-                        unsafe impl rsshader::constructs::VertexFn for #ty_ident
+                        unsafe impl rsshader::constructs::GPUVertexFn for #ty_ident
                     });
                     tokens.append_all(quote_spanned! {
                         input.span() =>
@@ -139,7 +139,7 @@ impl ToTokens for GPUFn {
                     };
                     tokens.append_all(quote_spanned! {
                         span_fallback(output.span(), *spec_span) =>
-                        unsafe impl rsshader::constructs::FragmentFn for #ty_ident
+                        unsafe impl rsshader::constructs::GPUFragmentFn for #ty_ident
                     });
                     tokens.append_all(quote_spanned! {
                         input.span() =>

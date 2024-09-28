@@ -1,5 +1,5 @@
 use quote::{quote, quote_spanned, ToTokens};
-use syn::{spanned::Spanned, Ident, ItemStruct};
+use syn::{spanned::Spanned, Ident, ItemStruct, Type};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct FragmentInfo {
@@ -9,6 +9,7 @@ pub struct FragmentInfo {
 #[derive(Clone)]
 pub struct GPUStruct {
     pub input: ItemStruct,
+    pub lerp_info: Option<()>,
     pub vertex_info: Option<()>,
     pub fragment_info: Option<FragmentInfo>,
 }
@@ -16,6 +17,7 @@ impl From<ItemStruct> for GPUStruct {
     fn from(value: ItemStruct) -> Self {
         Self {
             input: value,
+            lerp_info: None,
             vertex_info: None,
             fragment_info: None,
         }
@@ -27,6 +29,20 @@ impl ToTokens for GPUStruct {
 
         let ident = &self.input.ident;
         let (impl_generics, ty_generics, where_clause) = self.input.generics.split_for_impl();
+
+        let field_idents = self
+            .input
+            .fields
+            .iter()
+            .map(|field| field.ident.clone())
+            .collect::<Box<[Option<Ident>]>>();
+
+        let field_tys = self
+            .input
+            .fields
+            .iter()
+            .map(|field| field.ty.clone())
+            .collect::<Box<[Type]>>();
 
         let fields = self.input.fields.iter().map(|field| {
             let ident = field.ident.clone().unwrap();
@@ -48,15 +64,32 @@ impl ToTokens for GPUStruct {
             }
         });
 
+        if let Some(_) = &self.lerp_info {
+            tokens.extend(
+                quote! {
+                    unsafe impl #impl_generics rsshader::constructs::GPULerp for #ident #ty_generics #where_clause {
+                        fn lerp(&self, other: &Self, t: f32) -> Self {
+                            Self {
+                                #(
+                                    #field_idents: <#field_tys as rsshader::constructs::GPULerp>::lerp(&self.#field_idents, &other.#field_idents, t),
+                                )*
+                            }
+                        }
+                    }
+                }
+            );
+        }
+
         if let Some(_) = &self.vertex_info {
             tokens.extend(
                 quote! {
-                    unsafe impl #impl_generics rsshader::constructs::Vertex for #ident #ty_generics #where_clause {
+                    unsafe impl #impl_generics rsshader::constructs::GPUVertex for #ident #ty_generics #where_clause {
 
                     }
                 }
             );
         }
+
         if let Some(fragment_info) = &self.fragment_info {
             let pos = fragment_info.pos_field.clone().map_or_else(
                 || quote! { unreachable!() },
@@ -65,7 +98,7 @@ impl ToTokens for GPUStruct {
             tokens.extend(
                 quote_spanned! {
                     pos.span() =>
-                    unsafe impl #impl_generics rsshader::constructs::Fragment for #ident #ty_generics #where_clause {
+                    unsafe impl #impl_generics rsshader::constructs::GPUFragment for #ident #ty_generics #where_clause {
                         fn pos(&self) -> rsshader::shader_core::Vec4 {
                             #pos
                         }

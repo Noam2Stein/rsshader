@@ -4,6 +4,7 @@ use syn::{spanned::Spanned, Meta};
 
 mod fragment;
 mod fragment_fn;
+mod lerp;
 mod vertex;
 mod vertex_fn;
 

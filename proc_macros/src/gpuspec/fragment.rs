@@ -6,6 +6,7 @@ use crate::struct_::FragmentInfo;
 use super::*;
 
 pub fn apply_gpuspec(spec: &Meta, item: &mut GPUItem, errs: &mut Vec<TokenStream>) {
+    lerp::apply_gpuspec(spec, item, errs);
     match item {
         GPUItem::Struct(item) => {
             for field in &mut item.input.fields {

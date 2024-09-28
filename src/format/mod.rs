@@ -4,5 +4,5 @@ mod wgsl;
 pub use wgsl::*;
 
 pub trait RenderPipelineFormat {
-    fn get<V: Vertex>(pipeline: &RenderPipeline<V>) -> Self;
+    fn get<V: GPUVertex>(pipeline: &RenderPipeline<V>) -> Self;
 }

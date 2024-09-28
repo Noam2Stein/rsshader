@@ -1,7 +1,7 @@
 use super::*;
 use crate as rsshader;
 
-pub unsafe trait Vertex: GPUType {
+pub unsafe trait GPUVertex: GPUType {
     fn validate() {}
 }
 

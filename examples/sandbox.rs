@@ -9,7 +9,7 @@ struct Vertex {
 struct Fragment {
     #[fragment_pos]
     pos: Vec4,
-    color: Vec4,
+    color: Vec4<u8>,
 }
 
 #[gpu(vertex_fn)]
