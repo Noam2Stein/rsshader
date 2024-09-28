@@ -1,9 +1,9 @@
 # rsshader
 
-a crate that turns a sub-section of Rust into shaders in various format like spirv and wgsl.
+turns a sub-section of Rust into shaders in format like spirv and wgsl. a safe, productive, and performant way to create shaders.
 
 ```rust
-use rsshader::shader_core::*;
+use rsshader::*;
 
 #[gpu(vertex)]
 struct Vertex {
@@ -14,33 +14,39 @@ struct Vertex {
 struct Fragment {
     #[fragment_pos]
     pos: Vec4,
-    color: Vec4,
+    color: Vec3,
 }
 
 #[gpu(vertex_fn)]
 fn vs_main(vertex: Vertex) -> Fragment {
     Fragment {
         pos: vec4((vertex.pos, 0.0, 1.0)),
-        color: vec4((vertex.color, 1.0)),
+        color: vertex.color,
     }
 }
 #[gpu(fragment_fn)]
 fn fs_main(fragment: Fragment) -> Vec4 {
-    fragment.color
+    vec4((fragment.color, 1.0))
 }
 
-const HELLO_TRIANGLE: RenderPipeline<Vertex> = RenderPipeline::new::<gpufn!(vs_main), gpufn!(fs_main)>();
+const HELLO_TRIANGLE: RenderPipeline<Vertex> =
+    RenderPipeline::new::<gpufn!(vs_main), gpufn!(fs_main)>().optimize::<Wgsl>();
 
 fn main() {
-    println!("{}", HELLO_TRIANGLE.wgsl())
+    println!("{}", HELLO_TRIANGLE.format::<Wgsl>().as_str())
 }
-
 ```
 ## features
 
-### compile time validation
+### compilation-time validation
 
-shaders are validated at compile time to be core runnable on the gpu.
+all gpu items are validated at compile time.
+```rust
+#[gpu]
+struct FoolishStruct {
+    yihihiha: String, // ERROR: the trait bound `String: GPUType` is not satisfied
+}
+```
 
 ### extendability
 
@@ -61,3 +67,15 @@ impl Camera {
     }
 }
 ```
+
+### WGPU integration
+
+the 'wgpu' feature adds integration for wgpu to execute shaders safely.
+
+### 0-cost abstraction
+
+the generated output is identical to shaders directly written in the output formats.
+
+### future-optimization proof API
+
+with current stable rust alot of the translation process has to be done at runtime because of missing ```const fn``` features. the API is designed so that when the needed features are stablized, the crate would translate at compile-time.
