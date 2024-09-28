@@ -1,3 +1,5 @@
+*** everything here is unfinished and not ready for development, and anything mentioned in the README may not be implemented yet. ***
+
 # rsshader
 
 turns a sub-section of Rust into shaders in format like spirv and wgsl. a safe, productive, and performant way to create shaders.
