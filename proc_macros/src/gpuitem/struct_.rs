@@ -1,5 +1,10 @@
 use quote::{quote, quote_spanned, ToTokens};
-use syn::{spanned::Spanned, Ident, ItemStruct, Type};
+use syn::{spanned::Spanned, Ident, ItemStruct};
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct LerpInfo {
+    pub flats: Vec<Ident>,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct FragmentInfo {
@@ -9,7 +14,7 @@ pub struct FragmentInfo {
 #[derive(Clone)]
 pub struct GPUStruct {
     pub input: ItemStruct,
-    pub lerp_info: Option<()>,
+    pub lerp_info: Option<LerpInfo>,
     pub vertex_info: Option<()>,
     pub fragment_info: Option<FragmentInfo>,
 }
@@ -37,13 +42,6 @@ impl ToTokens for GPUStruct {
             .map(|field| field.ident.clone())
             .collect::<Box<[Option<Ident>]>>();
 
-        let field_tys = self
-            .input
-            .fields
-            .iter()
-            .map(|field| field.ty.clone())
-            .collect::<Box<[Type]>>();
-
         let fields = self.input.fields.iter().map(|field| {
             let ident = field.ident.clone().unwrap();
             let ty = &field.ty;
@@ -64,14 +62,32 @@ impl ToTokens for GPUStruct {
             }
         });
 
-        if let Some(_) = &self.lerp_info {
+        if let Some(lerp_info) = &self.lerp_info {
+            let field_values = self.input.fields.iter().map(|field| {
+                if let Some(field_ident) = &field.ident {
+                    if lerp_info.flats.contains(&field_ident) {
+                        quote! {
+                            self.#field_ident.clone()
+                        }
+                    } else {
+                        let field_ty = &field.ty;
+                        quote! {
+                            <#field_ty as rsshader::constructs::GPULerp>::lerp(&self.#field_ident, &other.#field_ident, t)
+                        }
+                    }
+                } else {
+                    quote! {
+                        
+                    }
+                }
+            });
             tokens.extend(
                 quote! {
                     unsafe impl #impl_generics rsshader::constructs::GPULerp for #ident #ty_generics #where_clause {
                         fn lerp(&self, other: &Self, t: f32) -> Self {
                             Self {
                                 #(
-                                    #field_idents: <#field_tys as rsshader::constructs::GPULerp>::lerp(&self.#field_idents, &other.#field_idents, t),
+                                    #field_idents: #field_values,
                                 )*
                             }
                         }
