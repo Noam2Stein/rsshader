@@ -15,18 +15,8 @@ struct Fragment {
 #[gpu(vertex_fn)]
 fn vs_main(vertex: Vertex) -> Fragment {
     Fragment {
-        pos: Vec4 {
-            x: vertex.pos.x,
-            y: vertex.pos.y,
-            z: 0.0,
-            w: 1.0,
-        },
-        color: Vec4 {
-            x: vertex.color.x,
-            y: vertex.color.y,
-            z: vertex.color.z,
-            w: 1.0,
-        },
+        pos: vec4((vertex.pos, 0.0, 1.0)),
+        color: vec4((vertex.color, 1.0)),
     }
 }
 #[gpu(fragment_fn)]
