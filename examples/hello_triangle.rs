@@ -24,8 +24,9 @@ fn fs_main(fragment: Fragment) -> Vec4 {
     fragment.color
 }
 
-const PIPELINE: RenderPipeline<Vertex> = RenderPipeline::new::<vs_main_GPUFn, fs_main_GPUFn>();
+const HELLO_TRIANGLE: RenderPipeline<Vertex> =
+    RenderPipeline::new::<vs_main_GPUFn, fs_main_GPUFn>();
 
 fn main() {
-    println!("{}", PIPELINE.wgsl())
+    println!("{}", HELLO_TRIANGLE.wgsl())
 }
