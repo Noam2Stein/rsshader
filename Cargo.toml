@@ -6,3 +6,5 @@ edition = "2021"
 [dependencies]
 rsshader_proc_macros = { path = "proc_macros" }
 typeid = "1.0.2"
+
+gomath = { git = "https://github.com/Noam2Stein/gomath" }
