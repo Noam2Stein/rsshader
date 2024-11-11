@@ -1,5 +1,6 @@
 use std::mem;
 
+use proc_macro::TokenStream as TokenStream1;
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, ToTokens};
 use syn::{parse_macro_input, punctuated::Punctuated, Item, Meta, Path};
@@ -9,6 +10,9 @@ use gpuitem::*;
 
 mod gpuspec;
 use gpuspec::*;
+
+mod derive_gpu_type;
+use derive_gpu_type::*;
 
 #[proc_macro_attribute]
 pub fn gpu(
