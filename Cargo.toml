@@ -1,10 +1,10 @@
 [package]
-name = "rsshader"
-version = "0.1.0"
 edition = "2021"
+name    = "rsshader"
+version = "0.1.0"
 
 [dependencies]
 rsshader_proc_macros = { path = "proc_macros" }
-typeid = "1.0.2"
+typeid               = "1.0.2"
 
-gomath = { git = "https://github.com/Noam2Stein/gomath" }
+ggmath = { git = "https://github.com/Noam2Stein/ggmath" }
