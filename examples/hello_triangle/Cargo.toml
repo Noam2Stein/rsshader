@@ -1,7 +1,0 @@
-[package]
-edition = "2021"
-name    = "hello_triangle"
-version = "0.1.0"
-
-[dependencies]
-rsshader = { path = "../../rsshader" }

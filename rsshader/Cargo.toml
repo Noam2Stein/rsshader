@@ -1,9 +1,0 @@
-[package]
-edition = "2021"
-name    = "rsshader"
-version = "0.1.0"
-
-[dependencies]
-ggmath               = { path = "../../ggmath/ggmath" }
-rsshader_proc_macros = { path = "../proc_macros" }
-typeid               = "1.0.2"

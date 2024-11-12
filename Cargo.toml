@@ -1,3 +1,0 @@
-[workspace]
-
-members = [ "examples/hello_triangle", "proc_macros", "rsshader", "sandbox" ]
