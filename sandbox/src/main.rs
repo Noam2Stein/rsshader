@@ -11,4 +11,6 @@ struct Vertex {
 }
 
 #[gpu_fn]
-fn test() {}
+fn test(pos: f32) -> bool {
+    pos > 1
+}
