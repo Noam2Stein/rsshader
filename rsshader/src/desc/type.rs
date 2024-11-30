@@ -33,3 +33,5 @@ pub struct GPUArrayDesc<'a> {
     pub item_type: &'a GPUTypeDesc<'a>,
     pub length: usize,
 }
+
+pub struct GPUUnsupportedType;

@@ -33,7 +33,7 @@ pub fn derive_gpu_type(input: TokenStream1) -> TokenStream1 {
                     fields: &[#(
                         rsshader::GPUFieldDesc {
                             ident: stringify!(#field_idents),
-                            ty: &<#field_types as rsshader::GPUType>::DESC,
+                            ty: &<#field_types as rsshader::GPUType>::TYPE_DESC,
                         },
                     )*],
                 })
@@ -45,7 +45,7 @@ pub fn derive_gpu_type(input: TokenStream1) -> TokenStream1 {
 
     quote! {
         impl #impl_generics rsshader::GPUType for #ident #ty_generics #where_clause {
-            const DESC: rsshader::GPUTypeDesc<'static> = #desc;
+            const TYPE_DESC: rsshader::GPUTypeDesc<'static> = #desc;
         }
     }
     .into()

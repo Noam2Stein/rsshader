@@ -1,27 +1,31 @@
 use super::*;
 
 pub trait GPUType {
-    const DESC: GPUTypeDesc<'static>;
+    const TYPE_DESC: GPUTypeDesc<'static>;
+
+    fn val_type_desc(&self) -> GPUTypeDesc<'static> {
+        Self::TYPE_DESC
+    }
 }
 
 pub use rsshader_proc_macros::GPUType;
 
 impl<T: GPUType, const N: usize> GPUType for [T; N] {
-    const DESC: GPUTypeDesc<'static> = GPUTypeDesc::Array(GPUArrayDesc {
-        item_type: &T::DESC,
+    const TYPE_DESC: GPUTypeDesc<'static> = GPUTypeDesc::Array(GPUArrayDesc {
+        item_type: &T::TYPE_DESC,
         length: N,
     });
 }
 
 impl GPUType for bool {
-    const DESC: GPUTypeDesc<'static> = GPUTypeDesc::Bool;
+    const TYPE_DESC: GPUTypeDesc<'static> = GPUTypeDesc::Bool;
 }
 impl GPUType for f32 {
-    const DESC: GPUTypeDesc<'static> = GPUTypeDesc::F32;
+    const TYPE_DESC: GPUTypeDesc<'static> = GPUTypeDesc::F32;
 }
 impl GPUType for i32 {
-    const DESC: GPUTypeDesc<'static> = GPUTypeDesc::I32;
+    const TYPE_DESC: GPUTypeDesc<'static> = GPUTypeDesc::I32;
 }
 impl GPUType for u32 {
-    const DESC: GPUTypeDesc<'static> = GPUTypeDesc::U32;
+    const TYPE_DESC: GPUTypeDesc<'static> = GPUTypeDesc::U32;
 }
