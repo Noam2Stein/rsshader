@@ -1,10 +1,10 @@
-use rsshader::{gpu_fn, gpu_type, render_pipeline, GPUType, RenderPipeline, WGSL};
+use rsshader::{gpu, render_pipeline, RenderPipeline, WGSL};
 
 fn main() {
     println!("{}", HELLO_TRIANGLE.format::<WGSL>())
 }
 
-#[gpu_type]
+#[gpu]
 struct Vertex {
     position: [f32; 2],
     color: [f32; 3],
@@ -13,13 +13,13 @@ struct Vertex {
 const HELLO_TRIANGLE: RenderPipeline<Vertex> =
     render_pipeline!(vertex_main, fragment_main).optimize::<WGSL>();
 
-#[gpu_type]
+#[gpu]
 struct Fragment {
     position: [f32; 4],
     color: [f32; 4],
 }
 
-#[gpu_fn]
+#[gpu]
 fn vertex_main(vertex: Vertex) -> Fragment {
     Fragment {
         position: [vertex.position[0], vertex.position[1], 0.0, 1.0],
@@ -27,7 +27,7 @@ fn vertex_main(vertex: Vertex) -> Fragment {
     }
 }
 
-#[gpu_fn]
+#[gpu]
 fn fragment_main(fragment: Fragment) -> [f32; 4] {
     fragment.color
 }

@@ -35,3 +35,7 @@ impl<V: GPUType> RenderPipeline<V> {
         self.fragment_fn
     }
 }
+
+pub trait FragmentFnOutput: GPUType {}
+
+impl FragmentFnOutput for [f32; 4] {}

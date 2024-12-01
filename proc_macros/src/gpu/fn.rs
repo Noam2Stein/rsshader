@@ -1,42 +1,29 @@
-use proc_macro::TokenStream as TokenStream1;
 use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned, ToTokens};
-use syn::{parse, spanned::Spanned, Error, Expr, FnArg, Ident, ItemFn, Lit, Member, Pat, ReturnType, Stmt};
+use syn::{spanned::Spanned, Error, Expr, FnArg, Ident, ItemFn, Lit, Member, Pat, ReturnType, Stmt};
 
 use crate::{get_expr_desc_item_ident, get_fn_desc_item_ident};
 
-pub fn gpu_fn(_input_attrib: TokenStream1, input_item: TokenStream1) -> TokenStream1 {
-    let ItemFn {
-        attrs: _,
-        vis,
-        sig,
-        block,
-    } = match parse(input_item.clone()) {
-        Ok(ok) => ok,
-        Err(err) => {
-            let input_item = TokenStream::from(input_item);
-            let err = err.to_compile_error();
-
-            return quote! {
-                #input_item
-                #err
-            }
-            .into();
-        }
-    };
+pub fn gpu(input: ItemFn) -> TokenStream {
+    let ItemFn { attrs: _, vis, sig, block } = &input;
 
     let fn_ident = &sig.ident;
 
     let fn_desc_item_ident = get_fn_desc_item_ident(&sig.ident);
     let expr_desc_item_ident = get_expr_desc_item_ident(&sig.ident);
 
-    let input_idents = sig.inputs.iter().filter_map(|input| match input {
-        FnArg::Receiver(_) => None,
-        FnArg::Typed(input) => match &*input.pat {
-            Pat::Ident(input) => Some(&input.ident),
-            _ => None,
-        },
-    }).collect::<Box<[&Ident]>>();
+    let input_idents = sig
+        .inputs
+        .iter()
+        .filter_map(|input| match input {
+            FnArg::Receiver(_) => None,
+            FnArg::Typed(input) => match &*input.pat {
+                Pat::Ident(input) => Some(&input.ident),
+                _ => None,
+            },
+        })
+        .collect::<Box<[&Ident]>>();
+
     let input_types = sig.inputs.iter().map(|input| match input {
         FnArg::Receiver(_) => quote_spanned! { input.span() => <compile_error!("receivers are not supported in gpu fns")> },
         FnArg::Typed(input) => match &*input.pat {
@@ -52,11 +39,13 @@ pub fn gpu_fn(_input_attrib: TokenStream1, input_item: TokenStream1) -> TokenStr
         }
     };
 
-    let input_expr_item_idents = input_idents.iter().map(|input_ident| get_expr_desc_item_ident(input_ident));
+    let input_expr_item_idents = input_idents
+        .iter()
+        .map(|input_ident| get_expr_desc_item_ident(input_ident));
     let stmts = stmts_desc(block.stmts.iter());
 
     quote! {
-        #vis #sig #block
+        #input
 
         #[allow(non_upper_case_globals)]
         #vis const #fn_desc_item_ident: rsshader::GPUFnDesc<'static> = rsshader::GPUFnDesc {
@@ -142,6 +131,8 @@ fn stmts_desc<'a>(stmts: impl Iterator<Item = &'a Stmt>) -> TokenStream {
     }
 }
 
+
+
 fn expr_desc(expr: &Expr) -> TokenStream {
     match expr {
         Expr::Lit(expr) => match &expr.lit {
@@ -152,7 +143,7 @@ fn expr_desc(expr: &Expr) -> TokenStream {
                 let lit: u128 = lit.base10_parse().unwrap();
 
                 quote_spanned! { lit.span() => rsshader::GPUExprDesc::IntLiteral(#lit) }
-            },
+            }
             Lit::Float(lit) => {
                 let lit = lit.base10_digits();
 
@@ -168,16 +159,16 @@ fn expr_desc(expr: &Expr) -> TokenStream {
 
             quote_spanned! {
                 expr.span() =>
-                
-                rsshader::GPUExprDesc::Struct(&#path::TYPE_DESC, &[#((stringify!(#field_idents), #field_value_descs)), *])
+
+                rsshader::GPUExprDesc::Struct(&<#path as rsshader::GPUType>::TYPE_DESC, &[#((stringify!(#field_idents), #field_value_descs)), *])
             }
-        },
+        }
         Expr::Array(expr) => {
             let element_descs = expr.elems.iter().map(expr_desc);
-            
+
             quote_spanned! {
                 expr.span() =>
-                
+
                 rsshader::GPUExprDesc::Array(&[#(#element_descs), *])
             }
         }
@@ -188,7 +179,7 @@ fn expr_desc(expr: &Expr) -> TokenStream {
             };
 
             path.to_token_stream()
-        },
+        }
         Expr::Field(expr) => {
             let base_desc = expr_desc(&expr.base);
             let field_ident = member_ident(&expr.member);
@@ -198,7 +189,7 @@ fn expr_desc(expr: &Expr) -> TokenStream {
 
                 rsshader::GPUExprDesc::Field(&#base_desc, #field_ident)
             }
-        },
+        }
         Expr::Index(expr) => {
             let base_desc = expr_desc(&expr.expr);
             let index_desc = expr_desc(&expr.index);

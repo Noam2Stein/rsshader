@@ -14,22 +14,18 @@ pub fn render_pipeline(input: TokenStream1) -> TokenStream1 {
     let fragment_fn_desc = get_fn_desc_item_ident(&fragment_fn);
 
     quote! {
-        {
-            const fn safe_render_pipeline<V: rsshader::GPUType, F: rsshader::GPUType, O: rsshader::GPUType>(
+        const {
+            const fn validate_render_pipeline<V: rsshader::GPUType, F: rsshader::GPUType, O: rsshader::FragmentFnOutput>(
                 _vertex_fn: fn(V) -> F,
                 _fragment_fn: fn(F) -> O,
-                vertex_fn_desc: &'static rsshader::GPUFnDesc<'static>,
-                fragment_fn_desc: &'static rsshader::GPUFnDesc<'static>,
-            ) -> rsshader::RenderPipeline<V> {
-                unsafe { rsshader::RenderPipeline::new_unchecked(vertex_fn_desc, fragment_fn_desc) }
-            }
+            ) {}
 
-            safe_render_pipeline(
+            validate_render_pipeline(
                 #vertex_fn,
                 #fragment_fn,
-                &#vertex_fn_desc,
-                &#fragment_fn_desc
-            )
+            );
+
+            unsafe { rsshader::RenderPipeline::new_unchecked(&#vertex_fn_desc, &#fragment_fn_desc) }
         }
     }
     .into()
