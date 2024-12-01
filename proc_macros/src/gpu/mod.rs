@@ -1,12 +1,15 @@
+mod blend;
 mod r#fn;
 mod r#struct;
 
+use bitflags::bitflags;
 use proc_macro::TokenStream as TokenStream1;
-use proc_macro2::{Span, TokenStream};
+use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{parse, Error, Item};
+use syn::{parse, parse_macro_input, Attribute, Error, Item};
 
 pub fn gpu(input_attrib: TokenStream1, input_item: TokenStream1) -> TokenStream1 {
+    let input_attribs = parse_macro_input!(input_attrib with Attribute::parse_inner);
     let input_item = match parse::<Item>(input_item.clone()) {
         Ok(input_item) => input_item,
         Err(err) => {
@@ -21,10 +24,23 @@ pub fn gpu(input_attrib: TokenStream1, input_item: TokenStream1) -> TokenStream1
         }
     };
 
-    let attrib_error = if !input_attrib.is_empty() {
-        Error::new(Span::call_site(), "unexpected tokens").to_compile_error()
-    } else {
-        TokenStream::new()
+    let (attribs, attrib_errors) = {
+        let mut attribs = GPUAttribs::empty();
+        let mut attrib_errs = Vec::new();
+
+        for input_attrib in input_attribs {
+            match input_attrib.path().require_ident() {
+                Ok(attrib_ident) => match attrib_ident.to_string().as_str() {
+                    "blend" => attribs |= GPUAttribs::BLEND,
+                    _ => attrib_errs.push(
+                        Error::new(attrib_ident.span(), "unknown gpu attribute").to_compile_error(),
+                    ),
+                },
+                Err(err) => attrib_errs.push(err.into_compile_error()),
+            }
+        }
+
+        (attribs, attrib_errs)
     };
 
     let item_output = match input_item {
@@ -40,7 +56,13 @@ pub fn gpu(input_attrib: TokenStream1, input_item: TokenStream1) -> TokenStream1
     quote! {
         #item_output
 
-        #attrib_error
+        #(#attrib_errors)*
     }
     .into()
+}
+
+bitflags! {
+    struct GPUAttribs: u8 {
+        const BLEND = 1;
+    }
 }
