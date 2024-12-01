@@ -1,7 +1,7 @@
 use proc_macro::TokenStream as TokenStream1;
 use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned, ToTokens};
-use syn::{parse, spanned::Spanned, Error, Expr, FnArg, Ident, ItemFn, Lit, Pat, ReturnType, Stmt};
+use syn::{parse, spanned::Spanned, Error, Expr, FnArg, Ident, ItemFn, Lit, Member, Pat, ReturnType, Stmt};
 
 use crate::{get_expr_desc_item_ident, get_fn_desc_item_ident};
 
@@ -70,8 +70,8 @@ pub fn gpu_fn(_input_attrib: TokenStream1, input_item: TokenStream1) -> TokenStr
             output: #output,
             stmts: {
                 #(
-                    #[allow(non_snake_case)]
-                    let #input_expr_item_idents = rsshader::GPUExprDesc::Local(stringify!(#input_idents));
+                    #[allow(non_upper_case_globals)]
+                    const #input_expr_item_idents: rsshader::GPUExprDesc<'static> = rsshader::GPUExprDesc::Local(stringify!(#input_idents));
                 )*
 
                 #stmts
@@ -116,7 +116,7 @@ fn stmts_desc<'a>(stmts: impl Iterator<Item = &'a Stmt>) -> TokenStream {
                         stmt.span() =>
     
                         #[allow(non_snake_case)]
-                        let #expr_desc_item_ident = rsshader::GPUExprDesc::Local(stringify!(#ident));
+                        const #expr_desc_item_ident: rsshader::GPUExprDesc<'static> = rsshader::GPUExprDesc::Local(stringify!(#ident));
 
                         let #stmt_var_ident = rsshader::GPUStmtDesc::Let(rsshader::GPULetDesc {
                             ident: stringify!(#ident),
@@ -152,9 +152,35 @@ fn expr_desc(expr: &Expr) -> TokenStream {
                 let lit: u128 = lit.base10_parse().unwrap();
 
                 quote_spanned! { lit.span() => rsshader::GPUExprDesc::IntLiteral(#lit) }
+            },
+            Lit::Float(lit) => {
+                let lit = lit.base10_digits();
+
+                quote_spanned! { lit.span() => rsshader::GPUExprDesc::FloatLiteral(#lit) }
             }
             _ => Error::new(expr.span(), "unsupported expr type").into_compile_error(),
         },
+        Expr::Struct(expr) => {
+            let path = &expr.path;
+
+            let field_idents = expr.fields.iter().map(|field| member_ident(&field.member));
+            let field_value_descs = expr.fields.iter().map(|field| expr_desc(&field.expr));
+
+            quote_spanned! {
+                expr.span() =>
+                
+                rsshader::GPUExprDesc::Struct(&#path::TYPE_DESC, &[#((stringify!(#field_idents), #field_value_descs)), *])
+            }
+        },
+        Expr::Array(expr) => {
+            let element_descs = expr.elems.iter().map(expr_desc);
+            
+            quote_spanned! {
+                expr.span() =>
+                
+                rsshader::GPUExprDesc::Array(&[#(#element_descs), *])
+            }
+        }
         Expr::Path(expr) => {
             let mut path = expr.path.clone();
             if let Some(last_segment) = path.segments.last_mut() {
@@ -162,7 +188,34 @@ fn expr_desc(expr: &Expr) -> TokenStream {
             };
 
             path.to_token_stream()
+        },
+        Expr::Field(expr) => {
+            let base_desc = expr_desc(&expr.base);
+            let field_ident = member_ident(&expr.member);
+
+            quote_spanned! {
+                expr.span() =>
+
+                rsshader::GPUExprDesc::Field(&#base_desc, #field_ident)
+            }
+        },
+        Expr::Index(expr) => {
+            let base_desc = expr_desc(&expr.expr);
+            let index_desc = expr_desc(&expr.index);
+
+            quote_spanned! {
+                expr.span() =>
+
+                rsshader::GPUExprDesc::Index(&#base_desc, &#index_desc)
+            }
         }
         _ => Error::new(expr.span(), "unsupported expr type").into_compile_error(),
+    }
+}
+
+fn member_ident(member: &Member) -> String {
+    match member {
+        Member::Named(named) => named.to_string(),
+        Member::Unnamed(unnamed) => unnamed.index.to_string(),
     }
 }

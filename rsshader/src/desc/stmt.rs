@@ -1,3 +1,5 @@
+use super::*;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum GPUStmtDesc<'a> {
     Let(GPULetDesc<'a>),
@@ -14,7 +16,11 @@ pub struct GPULetDesc<'a> {
 pub enum GPUExprDesc<'a> {
     BoolLiteral(bool),
     IntLiteral(u128),
+    FloatLiteral(&'a str),
+    Struct(&'a GPUTypeDesc<'a>, &'a [(&'a str, GPUExprDesc<'a>)]),
+    Array(&'a [GPUExprDesc<'a>]),
     Local(&'a str),
-    Static(&'a GPUExprDesc<'a>),
+    Field(&'a GPUExprDesc<'a>, &'a str),
+    Index(&'a GPUExprDesc<'a>, &'a GPUExprDesc<'a>),
     Empty,
 }

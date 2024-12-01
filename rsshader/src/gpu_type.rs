@@ -8,7 +8,7 @@ pub trait GPUType {
     }
 }
 
-pub use rsshader_proc_macros::GPUType;
+pub use rsshader_proc_macros::gpu_type;
 
 impl<T: GPUType, const N: usize> GPUType for [T; N] {
     const TYPE_DESC: GPUTypeDesc<'static> = GPUTypeDesc::Array(GPUArrayDesc {

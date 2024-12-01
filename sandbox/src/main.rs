@@ -4,7 +4,7 @@ fn main() {
     println!("{}", FUNNY.format::<WGSL>());
 }
 
-#[derive(GPUType)]
+#[gpu_type]
 struct Vertex {
     _pos: [f32; 3],
     _color: [f32; 3],

@@ -1,14 +1,14 @@
 use proc_macro::TokenStream as TokenStream1;
 use syn::Ident;
 
-mod derive_gpu_type;
 mod gpu_fn;
+mod gpu_type;
 mod render_pipeline;
 
 #[inline(always)]
-#[proc_macro_derive(GPUType)]
-pub fn derive_gpu_type(input: TokenStream1) -> TokenStream1 {
-    derive_gpu_type::derive_gpu_type(input)
+#[proc_macro_attribute]
+pub fn gpu_type(input_attrib: TokenStream1, input_item: TokenStream1) -> TokenStream1 {
+    gpu_type::gpu_type(input_attrib, input_item)
 }
 #[inline(always)]
 #[proc_macro_attribute]
