@@ -1,8 +1,8 @@
 use std::marker::PhantomData;
 
-use super::*;
-
 pub use rsshader_proc_macros::render_pipeline;
+
+use crate::{desc::GPUFnDesc, GPUType, ShaderFormat};
 
 pub struct RenderPipeline<V: GPUType> {
     danny: PhantomData<V>,

@@ -1,4 +1,4 @@
-use super::*;
+use crate::desc::GPUTypeDesc;
 
 pub trait GPUType {
     const TYPE_DESC: GPUTypeDesc<'static>;

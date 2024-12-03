@@ -23,12 +23,12 @@ pub fn gpu(input: ItemStruct) -> TokenStream {
         let field_ids = (0..fields.len()).map(|_| gen_item_id());
 
         quote! {
-            rsshader::GPUTypeDesc::Struct(rsshader::GPUStructDesc {
-                id: rsshader::GPUItemID(#id),
+            rsshader::desc::GPUTypeDesc::Struct(rsshader::desc::GPUStructDesc {
+                id: rsshader::desc::GPUItemID(#id),
                 name: stringify!(#ident),
                 fields: &[#(
-                    rsshader::GPUFieldDesc {
-                        id: rsshader::GPUItemID(#field_ids),
+                    rsshader::desc::GPUFieldDesc {
+                        id: rsshader::desc::GPUItemID(#field_ids),
                         name: stringify!(#field_idents),
                         ty: &<#field_types as rsshader::GPUType>::TYPE_DESC,
                     },
@@ -44,7 +44,7 @@ pub fn gpu(input: ItemStruct) -> TokenStream {
         #input
 
         impl #impl_generics rsshader::GPUType for #ident #ty_generics #where_clause {
-            const TYPE_DESC: rsshader::GPUTypeDesc<'static> = #desc;
+            const TYPE_DESC: rsshader::desc::GPUTypeDesc<'static> = #desc;
         }
     }
 }
