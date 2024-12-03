@@ -1,4 +1,4 @@
-use super::*;
+use super::GPUTypeDesc;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum GPUStmtDesc<'a> {

@@ -1,16 +1,19 @@
 use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned, ToTokens};
-use syn::{spanned::Spanned, Error, Expr, FnArg, Ident, ItemFn, Lit, Member, Pat, ReturnType, Stmt};
+use syn::{spanned::Spanned, Error, Expr, FnArg, Ident, ItemFn, Lit, Member, Pat, ReturnType, Signature, Stmt};
 
 use crate::{get_expr_desc_item_ident, get_fn_desc_item_ident};
 
+use super::gen_item_id;
+
 pub fn gpu(input: ItemFn) -> TokenStream {
     let ItemFn { attrs: _, vis, sig, block } = &input;
-
-    let fn_ident = &sig.ident;
-
+    let Signature { constness: _, asyncness: _, unsafety: _, abi: _, fn_token: _, ident, generics: _, paren_token: _, inputs: _, variadic: _, output: _ } = sig;
+    
     let fn_desc_item_ident = get_fn_desc_item_ident(&sig.ident);
     let expr_desc_item_ident = get_expr_desc_item_ident(&sig.ident);
+
+    let id = gen_item_id();
 
     let input_idents = sig
         .inputs
@@ -49,7 +52,8 @@ pub fn gpu(input: ItemFn) -> TokenStream {
 
         #[allow(non_upper_case_globals)]
         #vis const #fn_desc_item_ident: rsshader::GPUFnDesc<'static> = rsshader::GPUFnDesc {
-            ident: stringify!(#fn_ident),
+            id: rsshader::GPUItemID(#id),
+            name: stringify!(#ident),
             inputs: &[#(
                 rsshader::GPUFnInputDesc {
                     ident: stringify!(#input_idents),

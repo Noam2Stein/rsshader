@@ -2,10 +2,13 @@ mod blend;
 mod r#fn;
 mod r#struct;
 
+use std::time::{SystemTime, UNIX_EPOCH};
+
 use bitflags::bitflags;
 use proc_macro::TokenStream as TokenStream1;
 use proc_macro2::TokenStream;
 use quote::quote;
+use rand::Rng;
 use syn::{parse, parse_macro_input, Attribute, Error, Item};
 
 pub fn gpu(input_attrib: TokenStream1, input_item: TokenStream1) -> TokenStream1 {
@@ -24,7 +27,7 @@ pub fn gpu(input_attrib: TokenStream1, input_item: TokenStream1) -> TokenStream1
         }
     };
 
-    let (attribs, attrib_errors) = {
+    let (_attribs, attrib_errors) = {
         let mut attribs = GPUAttribs::empty();
         let mut attrib_errs = Vec::new();
 
@@ -65,4 +68,15 @@ bitflags! {
     struct GPUAttribs: u8 {
         const BLEND = 1;
     }
+}
+
+fn gen_item_id() -> u128 {
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("Time went backwards")
+        .as_nanos();
+
+    let random_part: u64 = rand::thread_rng().gen();
+
+    ((timestamp as u128) << 64) | random_part as u128
 }

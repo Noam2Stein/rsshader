@@ -1,7 +1,7 @@
+use super::GPUItemID;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum GPUTypeDesc<'a> {
-    Struct(GPUStructDesc<'a>),
-    Array(GPUArrayDesc<'a>),
     Bool,
     F32,
     F32x2,
@@ -15,23 +15,21 @@ pub enum GPUTypeDesc<'a> {
     U32x2,
     U32x3,
     U32x4,
+    Array(&'a GPUTypeDesc<'a>, usize),
+    Struct(GPUStructDesc<'a>),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct GPUStructDesc<'a> {
-    pub ident: &'a str,
+    pub id: GPUItemID,
+    pub name: &'a str,
     pub fields: &'a [GPUFieldDesc<'a>],
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct GPUFieldDesc<'a> {
-    pub ident: &'a str,
+    pub id: GPUItemID,
+    pub name: &'a str,
     pub ty: &'a GPUTypeDesc<'a>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct GPUArrayDesc<'a> {
-    pub item_type: &'a GPUTypeDesc<'a>,
-    pub length: usize,
 }
 
 pub struct GPUUnsupportedType;

@@ -9,10 +9,7 @@ pub trait GPUType {
 }
 
 impl<T: GPUType, const N: usize> GPUType for [T; N] {
-    const TYPE_DESC: GPUTypeDesc<'static> = GPUTypeDesc::Array(GPUArrayDesc {
-        item_type: &T::TYPE_DESC,
-        length: N,
-    });
+    const TYPE_DESC: GPUTypeDesc<'static> = GPUTypeDesc::Array(&T::TYPE_DESC, N);
 }
 
 impl GPUType for bool {

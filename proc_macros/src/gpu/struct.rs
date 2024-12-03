@@ -2,6 +2,8 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::ItemStruct;
 
+use crate::gpu::gen_item_id;
+
 pub fn gpu(input: ItemStruct) -> TokenStream {
     let ItemStruct {
         attrs: _,
@@ -13,16 +15,21 @@ pub fn gpu(input: ItemStruct) -> TokenStream {
         semi_token: _,
     } = &input;
 
+    let id = gen_item_id();
+
     let desc = {
         let field_idents = fields.iter().map(|field| field.ident.as_ref());
         let field_types = fields.iter().map(|field| &field.ty);
+        let field_ids = (0..fields.len()).map(|_| gen_item_id());
 
         quote! {
             rsshader::GPUTypeDesc::Struct(rsshader::GPUStructDesc {
-                ident: stringify!(#ident),
+                id: rsshader::GPUItemID(#id),
+                name: stringify!(#ident),
                 fields: &[#(
                     rsshader::GPUFieldDesc {
-                        ident: stringify!(#field_idents),
+                        id: rsshader::GPUItemID(#field_ids),
+                        name: stringify!(#field_idents),
                         ty: &<#field_types as rsshader::GPUType>::TYPE_DESC,
                     },
                 )*],
