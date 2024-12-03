@@ -1,16 +1,15 @@
-use super::{GPUItemID, GPUStmtDesc, GPUTypeDesc};
+use super::{GPUIdentDesc, GPUStmtDesc, GPUTypeDesc};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct GPUFnDesc<'a> {
-    pub id: GPUItemID,
-    pub name: &'a str,
-    pub inputs: &'a [GPUFnInputDesc<'a>],
-    pub output: Option<&'a GPUTypeDesc<'a>>,
-    pub stmts: &'a [GPUStmtDesc<'a>],
+pub struct GPUFnDesc {
+    pub ident: GPUIdentDesc,
+    pub inputs: &'static [GPUFnInputDesc],
+    pub output: Option<&'static GPUTypeDesc>,
+    pub stmts: &'static [GPUStmtDesc],
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct GPUFnInputDesc<'a> {
-    pub ident: &'a str,
-    pub ty: &'a GPUTypeDesc<'a>,
+pub struct GPUFnInputDesc {
+    pub ident: GPUIdentDesc,
+    pub ty: &'static GPUTypeDesc,
 }

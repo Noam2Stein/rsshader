@@ -1,26 +1,29 @@
-use super::GPUTypeDesc;
+use super::{GPUFieldDesc, GPUIdentDesc, GPUTypeDesc};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum GPUStmtDesc<'a> {
-    Let(GPULetDesc<'a>),
-    Expr(GPUExprDesc<'a>),
+pub enum GPUStmtDesc {
+    Let(GPULetDesc),
+    Expr(GPUExprDesc),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct GPULetDesc<'a> {
-    pub ident: &'a str,
-    pub value: GPUExprDesc<'a>,
+pub struct GPULetDesc {
+    pub ident: GPUIdentDesc,
+    pub value: GPUExprDesc,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum GPUExprDesc<'a> {
+pub enum GPUExprDesc {
     BoolLiteral(bool),
     IntLiteral(u128),
-    FloatLiteral(&'a str),
-    Struct(&'a GPUTypeDesc<'a>, &'a [(&'a str, GPUExprDesc<'a>)]),
-    Array(&'a [GPUExprDesc<'a>]),
-    Local(&'a str),
-    Field(&'a GPUExprDesc<'a>, &'a str),
-    Index(&'a GPUExprDesc<'a>, &'a GPUExprDesc<'a>),
+    FloatLiteral(&'static str),
+    Struct(
+        &'static GPUTypeDesc,
+        &'static [(&'static GPUFieldDesc, GPUExprDesc)],
+    ),
+    Array(&'static [GPUExprDesc]),
+    Local(&'static GPULetDesc),
+    Field(&'static GPUExprDesc, GPUIdentDesc),
+    Index(&'static GPUExprDesc, &'static GPUExprDesc),
     Empty,
 }

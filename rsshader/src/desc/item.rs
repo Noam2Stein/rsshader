@@ -1,19 +1,16 @@
-use super::{GPUFnDesc, GPUStructDesc};
+use super::{GPUFnDesc, GPUIdentDesc, GPUStructDesc};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum GPUItemDesc<'a> {
-    Struct(GPUStructDesc<'a>),
-    Fn(GPUFnDesc<'a>),
+pub enum GPUItemDesc {
+    Struct(GPUStructDesc),
+    Fn(GPUFnDesc),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct GPUItemID(pub u128);
-
-impl<'a> GPUItemDesc<'a> {
-    pub fn id(&self) -> GPUItemID {
+impl GPUItemDesc {
+    pub fn ident(&self) -> GPUIdentDesc {
         match self {
-            Self::Struct(item) => item.id,
-            Self::Fn(item) => item.id,
+            Self::Struct(item) => item.ident,
+            Self::Fn(item) => item.ident,
         }
     }
 }
