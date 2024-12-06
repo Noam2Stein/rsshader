@@ -22,7 +22,7 @@ pub enum GPUExprDesc {
         &'static [(&'static GPUFieldDesc, GPUExprDesc)],
     ),
     Array(&'static [GPUExprDesc]),
-    Local(&'static GPULetDesc),
+    Local(&'static GPUIdentDesc),
     Field(&'static GPUExprDesc, GPUIdentDesc),
     Index(&'static GPUExprDesc, &'static GPUExprDesc),
     Empty,

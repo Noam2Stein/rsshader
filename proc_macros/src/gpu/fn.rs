@@ -2,15 +2,14 @@ use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned, ToTokens};
 use syn::{spanned::Spanned, Error, Expr, FnArg, Ident, ItemFn, Lit, Member, Pat, ReturnType, Signature, Stmt};
 
-use crate::{get_expr_desc_item_ident, get_fn_desc_item_ident};
+use crate::get_expr_desc_item_ident;
 
 use super::gen_item_id;
 
 pub fn gpu(input: ItemFn) -> TokenStream {
     let ItemFn { attrs: _, vis, sig, block } = &input;
-    let Signature { constness: _, asyncness: _, unsafety: _, abi: _, fn_token: _, ident, generics: _, paren_token: _, inputs: _, variadic: _, output: _ } = sig;
+    let Signature { constness: _, asyncness: _, unsafety: _, abi: _, fn_token: _, ident, generics: _, paren_token: _, inputs: _, variadic: _, output } = sig;
     
-    let fn_desc_item_ident = get_fn_desc_item_ident(&sig.ident);
     let expr_desc_item_ident = get_expr_desc_item_ident(&sig.ident);
 
     let id = gen_item_id();
@@ -25,7 +24,9 @@ pub fn gpu(input: ItemFn) -> TokenStream {
                 _ => None,
             },
         })
-        .collect::<Box<[&Ident]>>();
+        .collect::<Box<[_]>>();
+
+    let input_ids = (0..sig.inputs.len()).map(|_| gen_item_id()).collect::<Box<[_]>>();
 
     let input_types = sig.inputs.iter().map(|input| match input {
         FnArg::Receiver(_) => quote_spanned! { input.span() => <compile_error!("receivers are not supported in gpu fns")> },
@@ -33,9 +34,9 @@ pub fn gpu(input: ItemFn) -> TokenStream {
             Pat::Ident(_) => input.ty.to_token_stream(),
             _ => quote_spanned! { input.span() => <compile_error!("only ident inputs are supported in gpu fns")> },
         },
-    });
+    }).collect::<Box<[_]>>();
 
-    let output = match &sig.output {
+    let output_desc = match &sig.output {
         ReturnType::Default => quote_spanned! { sig.span() => None },
         ReturnType::Type(_, output) => {
             quote_spanned! { output.span() => Some(&<#output as rsshader::GPUType>::TYPE_DESC) }
@@ -48,29 +49,38 @@ pub fn gpu(input: ItemFn) -> TokenStream {
     let stmts = stmts_desc(block.stmts.iter());
 
     quote! {
-        #input
+        #[allow(non_camel_case_types)]
+        #vis struct #ident;
 
-        #[allow(non_upper_case_globals)]
-        #vis const #fn_desc_item_ident: rsshader::desc::GPUFnDesc<'static> = rsshader::desc::GPUFnDesc {
-            id: rsshader::desc::GPUItemID(#id),
-            name: stringify!(#ident),
-            inputs: &[#(
-                rsshader::desc::GPUFnInputDesc {
-                    ident: stringify!(#input_idents),
-                    ty: &<#input_types as rsshader::GPUType>::TYPE_DESC,
+        impl std::ops::Deref for #ident {
+            type Target = fn(#(#input_types), *) #output;
+            fn deref(&self) -> &Self::Target {
+                #sig #block
+
+                &(#ident as fn(#(#input_types), *) #output)
+            }
+        }
+        unsafe impl rsshader::GPUFn for #ident {
+            const FN_DESC: rsshader::desc::GPUFnDesc = rsshader::desc::GPUFnDesc {
+                ident: rsshader::desc::GPUIdentDesc(#id, stringify!(#ident)),
+                inputs: &[#(
+                    rsshader::desc::GPUFnInputDesc {
+                        ident: rsshader::desc::GPUIdentDesc(#input_ids, stringify!(#input_idents)),
+                        ty: &<#input_types as rsshader::GPUType>::TYPE_DESC,
+                    },
+                )*],
+                output: #output_desc,
+                stmts: {
+                    #(
+                        #[allow(non_upper_case_globals)]
+                        const #input_expr_item_idents: rsshader::desc::GPUExprDesc
+                            = rsshader::desc::GPUExprDesc::Local(&rsshader::desc::GPUIdentDesc(#input_ids, stringify!(#input_idents)));
+                    )*
+    
+                    #stmts
                 },
-            )*],
-            output: #output,
-            stmts: {
-                #(
-                    #[allow(non_upper_case_globals)]
-                    const #input_expr_item_idents: rsshader::desc::GPUExprDesc<'static>
-                        = rsshader::desc::GPUExprDesc::Local(stringify!(#input_idents));
-                )*
-
-                #stmts
-            },
-        };
+            };
+        }
 
         #[allow(non_upper_case_globals)]
         #vis const #expr_desc_item_ident: rsshader::desc::GPUUnsupportedType = rsshader::desc::GPUUnsupportedType;
@@ -79,7 +89,7 @@ pub fn gpu(input: ItemFn) -> TokenStream {
 }
 
 fn stmts_desc<'a>(stmts: impl Iterator<Item = &'a Stmt>) -> TokenStream {
-    let stmt_vars = stmts
+    let let_stmt_vars = stmts
         .zip(0..)
         .map(|(stmt, i)| {
             let stmt_var_ident = Ident::new(&format!("stmt_{i}"), stmt.span());
@@ -108,15 +118,17 @@ fn stmts_desc<'a>(stmts: impl Iterator<Item = &'a Stmt>) -> TokenStream {
     
                     quote_spanned! {
                         stmt.span() =>
-    
-                        #[allow(non_snake_case)]
-                        const #expr_desc_item_ident: rsshader::desc::GPUExprDesc<'static>
-                            = rsshader::desc::GPUExprDesc::Local(stringify!(#ident));
 
-                        let #stmt_var_ident = rsshader::desc::GPUStmtDesc::Let(rsshader::desc::GPULetDesc {
-                            ident: stringify!(#ident),
-                            value: #value_desc,
-                        });
+                        #[allow(non_snake_case)]
+                        const #stmt_var_ident: rsshader::desc::GPUStmtDesc
+                            = rsshader::desc::GPUStmtDesc::Let(rsshader::desc::GPULetDesc {
+                                ident: stringify!(#ident),
+                                value: #value_desc,
+                            });
+
+                        #[allow(non_snake_case)]
+                        const #expr_desc_item_ident: rsshader::desc::GPUExprDesc
+                            = rsshader::desc::GPUExprDesc::Local(&#stmt_var_ident);
                     }
                 }
                 _ => Error::new(stmt.span(), "unsupported stmt type").into_compile_error(),
@@ -124,20 +136,18 @@ fn stmts_desc<'a>(stmts: impl Iterator<Item = &'a Stmt>) -> TokenStream {
         })
         .collect::<Box<[TokenStream]>>();
 
-    let stmt_idents = (0..stmt_vars.len())
-        .map(|i| Ident::new(&format!("stmt_{i}"), stmt_vars[i].span()))
+    let stmt_var_idents = (0..let_stmt_vars.len())
+        .map(|i| Ident::new(&format!("stmt_{i}"), let_stmt_vars[i].span()))
         .collect::<Box<[Ident]>>();
 
     quote_spanned! {
-        stmt_idents.last().span() => {
-            #(#stmt_vars)*
+        stmt_var_idents.last().span() => {
+            #(#let_stmt_vars)*
 
-            &[#(#stmt_idents), *]
+            &[#(#stmt_var_idents), *]
         }
     }
 }
-
-
 
 fn expr_desc(expr: &Expr) -> TokenStream {
     match expr {
@@ -166,7 +176,10 @@ fn expr_desc(expr: &Expr) -> TokenStream {
             quote_spanned! {
                 expr.span() =>
 
-                rsshader::desc::GPUExprDesc::Struct(&<#path as rsshader::GPUType>::TYPE_DESC, &[#((stringify!(#field_idents), #field_value_descs)), *])
+                rsshader::desc::GPUExprDesc::Struct(&<#path as rsshader::GPUType>::TYPE_DESC, &[#((
+                    &<#path as rsshader::GPUType>::TYPE_DESC.field(stringify!(#field_idents)),
+                    #field_value_descs
+                )), *])
             }
         }
         Expr::Array(expr) => {

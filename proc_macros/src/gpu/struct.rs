@@ -24,12 +24,10 @@ pub fn gpu(input: ItemStruct) -> TokenStream {
 
         quote! {
             rsshader::desc::GPUTypeDesc::Struct(rsshader::desc::GPUStructDesc {
-                id: rsshader::desc::GPUItemID(#id),
-                name: stringify!(#ident),
+                ident: rsshader::desc::GPUIdentDesc(#id, stringify!(#ident)),
                 fields: &[#(
                     rsshader::desc::GPUFieldDesc {
-                        id: rsshader::desc::GPUItemID(#field_ids),
-                        name: stringify!(#field_idents),
+                        ident: rsshader::desc::GPUIdentDesc(#field_ids, stringify!(#field_idents)),
                         ty: &<#field_types as rsshader::GPUType>::TYPE_DESC,
                     },
                 )*],
@@ -43,8 +41,8 @@ pub fn gpu(input: ItemStruct) -> TokenStream {
         #[repr(C)]
         #input
 
-        impl #impl_generics rsshader::GPUType for #ident #ty_generics #where_clause {
-            const TYPE_DESC: rsshader::desc::GPUTypeDesc<'static> = #desc;
+        unsafe impl #impl_generics rsshader::GPUType for #ident #ty_generics #where_clause {
+            const TYPE_DESC: rsshader::desc::GPUTypeDesc = #desc;
         }
     }
 }

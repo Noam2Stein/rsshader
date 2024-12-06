@@ -1,23 +1,40 @@
-use std::marker::PhantomData;
+use std::{marker::PhantomData, mem::forget, ops::Deref};
 
-pub use rsshader_proc_macros::render_pipeline;
-
-use crate::{desc::GPUFnDesc, GPUType, ShaderFormat};
+use crate::{desc::GPUFnDesc, GPUFn, GPUType, ShaderFormat};
 
 pub struct RenderPipeline<V: GPUType> {
     danny: PhantomData<V>,
-    vertex_fn: &'static GPUFnDesc<'static>,
-    fragment_fn: &'static GPUFnDesc<'static>,
+    vertex_fn: &'static GPUFnDesc,
+    fragment_fn: &'static GPUFnDesc,
 }
 impl<V: GPUType> RenderPipeline<V> {
     pub const unsafe fn new_unchecked(
-        vertex_fn: &'static GPUFnDesc<'static>,
-        fragment_fn: &'static GPUFnDesc<'static>,
+        vertex_fn: &'static GPUFnDesc,
+        fragment_fn: &'static GPUFnDesc,
     ) -> Self {
         Self {
             danny: std::mem::transmute(()),
             vertex_fn,
             fragment_fn,
+        }
+    }
+
+    pub const fn new<
+        VFn: GPUFn + Deref<Target = fn(V) -> F>,
+        FFn: GPUFn + Deref<Target = fn(F) -> O>,
+        F: GPUType,
+        O: FragmentFnOutput,
+    >(
+        _f_vertex: VFn,
+        _f_fragment: FFn,
+    ) -> Self {
+        forget(_f_vertex);
+        forget(_f_fragment);
+
+        Self {
+            danny: unsafe { std::mem::transmute(()) },
+            vertex_fn: &VFn::FN_DESC,
+            fragment_fn: &FFn::FN_DESC,
         }
     }
 
@@ -28,10 +45,10 @@ impl<V: GPUType> RenderPipeline<V> {
         F::format_render_pipeline(self)
     }
 
-    pub const fn vertex_fn(&self) -> &'static GPUFnDesc<'static> {
+    pub const fn vertex_fn(&self) -> &'static GPUFnDesc {
         self.vertex_fn
     }
-    pub const fn fragment_fn(&self) -> &'static GPUFnDesc<'static> {
+    pub const fn fragment_fn(&self) -> &'static GPUFnDesc {
         self.fragment_fn
     }
 }

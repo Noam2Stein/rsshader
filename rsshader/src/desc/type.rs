@@ -1,4 +1,4 @@
-use super::GPUIdentDesc;
+use super::GPUStructDesc;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum GPUTypeDesc {
@@ -17,19 +17,6 @@ pub enum GPUTypeDesc {
     U32x4,
     Array(&'static GPUTypeDesc, usize),
     Struct(GPUStructDesc),
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct GPUStructDesc {
-    pub ident: GPUIdentDesc,
-    pub name: &'static str,
-    pub fields: &'static [GPUFieldDesc],
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct GPUFieldDesc {
-    pub id: GPUIdentDesc,
-    pub name: &'static str,
-    pub ty: &'static GPUTypeDesc,
 }
 
 pub struct GPUUnsupportedType;
