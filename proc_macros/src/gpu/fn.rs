@@ -4,7 +4,7 @@ use syn::{spanned::Spanned, Error, Expr, FnArg, Ident, ItemFn, Lit, Member, Pat,
 
 use crate::get_expr_desc_item_ident;
 
-use super::gen_item_id;
+use super::generate_id;
 
 pub fn gpu(input: ItemFn) -> TokenStream {
     let ItemFn { attrs: _, vis, sig, block } = &input;
@@ -12,7 +12,7 @@ pub fn gpu(input: ItemFn) -> TokenStream {
     
     let expr_desc_item_ident = get_expr_desc_item_ident(&sig.ident);
 
-    let id = gen_item_id();
+    let id = generate_id();
 
     let input_idents = sig
         .inputs
@@ -26,7 +26,7 @@ pub fn gpu(input: ItemFn) -> TokenStream {
         })
         .collect::<Box<[_]>>();
 
-    let input_ids = (0..sig.inputs.len()).map(|_| gen_item_id()).collect::<Box<[_]>>();
+    let input_ids = (0..sig.inputs.len()).map(|_| generate_id()).collect::<Box<[_]>>();
 
     let input_types = sig.inputs.iter().map(|input| match input {
         FnArg::Receiver(_) => quote_spanned! { input.span() => <compile_error!("receivers are not supported in gpu fns")> },

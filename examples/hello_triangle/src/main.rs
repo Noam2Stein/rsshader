@@ -1,7 +1,7 @@
-use rsshader::{gpu, render_pipeline, RenderPipeline, WGSL};
+use rsshader::{gpu, render_pipeline, RenderPipeline};
 
 fn main() {
-    println!("{}", HELLO_TRIANGLE.format::<WGSL>())
+    println!("{}", HELLO_TRIANGLE.wgsl())
 }
 
 #[gpu]
@@ -10,8 +10,7 @@ struct Vertex {
     color: [f32; 3],
 }
 
-const HELLO_TRIANGLE: RenderPipeline<Vertex> =
-    render_pipeline!(vertex_main, fragment_main).optimize::<WGSL>();
+const HELLO_TRIANGLE: RenderPipeline<Vertex> = render_pipeline!(vertex_main, fragment_main);
 
 #[gpu]
 struct Fragment {

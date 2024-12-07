@@ -6,6 +6,6 @@ pub unsafe trait GPUFn {
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct GPUFnInfo {
-    item_info: GPUItemInfo,
-    wgsl_call_reference: &'static str,
+    pub item_info: GPUItemInfo,
+    pub wgsl_call_reference: &'static str,
 }

@@ -9,7 +9,7 @@ use proc_macro::TokenStream as TokenStream1;
 use proc_macro2::TokenStream;
 use quote::quote;
 use rand::Rng;
-use syn::{parse, parse_macro_input, Attribute, Error, Item};
+use syn::{parse, parse_macro_input, Attribute, Error, Ident, Item};
 
 pub fn gpu(input_attrib: TokenStream1, input_item: TokenStream1) -> TokenStream1 {
     let input_attribs = parse_macro_input!(input_attrib with Attribute::parse_inner);
@@ -46,8 +46,10 @@ pub fn gpu(input_attrib: TokenStream1, input_item: TokenStream1) -> TokenStream1
         (attribs, attrib_errs)
     };
 
+    let id = generate_id();
+
     let item_output = match input_item {
-        Item::Struct(input_item) => r#struct::gpu(input_item),
+        Item::Struct(input_item) => r#struct::gpu(input_item, id),
         Item::Fn(input_item) => r#fn::gpu(input_item),
         _ => quote! {
             #input_item
@@ -70,7 +72,7 @@ bitflags! {
     }
 }
 
-fn gen_item_id() -> u128 {
+fn generate_id() -> u128 {
     let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("Time went backwards")
@@ -79,4 +81,12 @@ fn gen_item_id() -> u128 {
     let random_part: u64 = rand::thread_rng().gen();
 
     ((timestamp as u128) << 64) | random_part as u128
+}
+
+fn wgsl_ident(id: u128, rust_ident: &Ident) -> String {
+    format!(
+        "id{}_{}",
+        id % 10000,
+        rust_ident.to_string().replace("r#", "").replace("#", "")
+    )
 }

@@ -9,6 +9,7 @@ pub struct GPUItemInfo {
     pub wgsl_declaration: &'static str,
 }
 impl GPUItemInfo {
+    #[allow(invalid_value)]
     pub const fn resolve_dependencies(
         items: &[&'static GPUItemInfo],
     ) -> (MaybeUninit<[&'static GPUItemInfo; ITEM_CAPACITY]>, usize) {

@@ -4,5 +4,4 @@ name    = "rsshader"
 version = "0.1.0"
 
 [dependencies]
-const_format         = "0.2.34"
 rsshader_proc_macros = { path = "../proc_macros" }

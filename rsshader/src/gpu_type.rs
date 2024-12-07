@@ -1,5 +1,3 @@
-use const_format::formatcp;
-
 use crate::GPUItemInfo;
 
 pub unsafe trait GPUType {
@@ -8,12 +6,12 @@ pub unsafe trait GPUType {
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct GPUTypeInfo {
-    item_info: GPUItemInfo,
-    wgsl_reference: &'static str,
+    pub item_info: GPUItemInfo,
+    pub wgsl_reference: &'static str,
 }
 
 macro_rules! impl_array_gpu_type {
-    ([$t:ty; $($n:expr), * $(,)?]) => {$(
+    ([$t:ty; $($n:literal), * $(,)?]) => {$(
         unsafe impl GPUType for [$t; $n] {
             const GPU_TYPE_INFO: GPUTypeInfo = GPUTypeInfo {
                 item_info: GPUItemInfo {
@@ -21,7 +19,16 @@ macro_rules! impl_array_gpu_type {
                     dependencies: &[],
                     wgsl_declaration: "",
                 },
-                wgsl_reference: formatcp!("array<{}, {}>", <$t as GPUType>::GPU_TYPE_INFO.wgsl_reference, (($n) as usize)),
+                wgsl_reference: {
+                    const STRS: &[&str] = &[
+                        "array<",
+                        <$t as GPUType>::GPU_TYPE_INFO.wgsl_reference,
+                        ", ",
+                        stringify!($n),
+                        ">"
+                    ];
+                    crate::__concat_strs_into__(&crate::__concat_strs_init__::<{ crate::__concat_strs_len__(STRS) }>(STRS))
+                },
             };
         }
     )*};
@@ -40,7 +47,7 @@ macro_rules! impl_gpu_type {
         }
 
         impl_array_gpu_type!([$ty;
-            01, 02, 03, 04, 05, 06, 07, 08, 09, 10,
+            1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
             11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
             21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
             31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
