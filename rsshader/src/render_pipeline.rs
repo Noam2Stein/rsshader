@@ -1,11 +1,10 @@
 use std::{marker::PhantomData, mem::forget, ops::Deref};
 
-use crate::{desc::GPUFnDesc, GPUFn, GPUType, ShaderFormat};
+use crate::{GPUFn, GPUType, ShaderFormat};
 
 pub struct RenderPipeline<V: GPUType> {
     danny: PhantomData<V>,
-    vertex_fn: &'static GPUFnDesc,
-    fragment_fn: &'static GPUFnDesc,
+    wgsl: &'static str,
 }
 impl<V: GPUType> RenderPipeline<V> {
     pub const unsafe fn new_unchecked(
