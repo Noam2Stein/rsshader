@@ -1,0 +1,7 @@
+[package]
+edition = "2024"
+name    = "hello_triangle"
+version = "0.1.0"
+
+[dependencies]
+rsshader = { path = "../.." }

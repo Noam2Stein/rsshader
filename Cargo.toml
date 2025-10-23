@@ -1,0 +1,10 @@
+[package]
+edition = "2024"
+name    = "rsshader"
+version = "0.1.0"
+
+[dependencies]
+rsshader_macros = { path = "proc_macros" }
+
+[workspace]
+members = [".", "examples/hello_triangle", "proc_macros"]
