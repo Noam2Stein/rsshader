@@ -3,11 +3,11 @@ fn main() {
 }
 
 use rsshader::{
-    ir::{Field, FieldKind, Length, Primitive, Shader, Struct, Type, Vector},
+    ir::{Field, FieldKind, Length, LinkedShader, Primitive, Struct, Type, Vector},
     wgsl,
 };
 
-const SHADER: &str = wgsl!(Shader {
+const SHADER: &str = wgsl!(LinkedShader {
     types: &[&Type::Struct(Struct {
         fields: &[
             Field {

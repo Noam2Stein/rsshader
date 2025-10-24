@@ -1,5 +1,5 @@
 use crate::{
-    ir::{Array, FieldKind, Length, Matrix, Primitive, Shader, Type, Vector},
+    ir::{Array, FieldKind, Length, LinkedShader, Matrix, Primitive, Type, Vector},
     lang::Formatter,
 };
 
@@ -11,7 +11,7 @@ macro_rules! wgsl {
 }
 
 #[doc(hidden)]
-pub const fn fmt_wgsl(f: &mut Formatter, shader: &'static Shader) {
+pub const fn fmt_wgsl(f: &mut Formatter, shader: &'static LinkedShader) {
     let mut ty_idx = 0;
     while ty_idx < shader.types.len() {
         let ty = shader.types[ty_idx];
@@ -26,7 +26,7 @@ const fn fmt_type_decl(
     f: &mut Formatter,
     ty: &'static Type,
     ty_idx: usize,
-    shader: &'static Shader,
+    shader: &'static LinkedShader,
 ) {
     match ty {
         Type::Primitive(Primitive::F32 | Primitive::I32 | Primitive::U32 | Primitive::Bool) => {}
@@ -79,7 +79,7 @@ const fn fmt_type_decl(
     }
 }
 
-const fn fmt_type_name(f: &mut Formatter, ty: &'static Type, shader: &'static Shader) {
+const fn fmt_type_name(f: &mut Formatter, ty: &'static Type, shader: &'static LinkedShader) {
     match ty {
         Type::Primitive(Primitive::F32) => f.write_str("f32"),
         Type::Primitive(Primitive::I32) => f.write_str("i32"),

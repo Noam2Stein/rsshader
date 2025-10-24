@@ -20,7 +20,7 @@ pub fn shader(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
     quote! {{
         const RSSHADER_STR: &str = {
-            const RSSHADER_IR: rsshader::ir::Shader = #ir;
+            const RSSHADER_IR: rsshader::ir::LinkedShader = #ir;
 
             const RSSHADER_LEN: usize = {
                 let mut f = rsshader::lang::Formatter::without_output();

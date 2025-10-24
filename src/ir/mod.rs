@@ -4,7 +4,7 @@ pub use function::*;
 pub use ty::*;
 
 #[derive(Debug, Clone, Copy)]
-pub struct Shader {
+pub struct LinkedShader {
     pub types: &'static [&'static Type],
     pub functions: &'static [&'static Function],
 }
