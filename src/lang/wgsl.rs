@@ -3,6 +3,13 @@ use crate::{
     lang::Formatter,
 };
 
+#[macro_export]
+macro_rules! wgsl {
+    ($ir:expr) => {
+        $crate::shader!($ir => $crate::lang::fmt_wgsl)
+    };
+}
+
 #[doc(hidden)]
 pub const fn fmt_wgsl(f: &mut Formatter, shader: &'static Shader) {
     let mut ty_idx = 0;
