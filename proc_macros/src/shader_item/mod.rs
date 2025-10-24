@@ -10,7 +10,14 @@ pub fn shader_item(
     let item = parse_macro_input!(item as Item);
 
     match item {
-        Item::Struct(item) => r#struct::shader_item(item).into(),
-        _ => quote! { compile_error!("Unsupported item type") }.into(),
+        Item::Struct(item) => r#struct::shader_item(item),
+        Item::Const(item) => {
+            quote! { #item compile_error!("constants do not need to be annotated with #[shader_item]"); }
+        }
+        Item::Use(item) => {
+            quote! { #item compile_error!("use statements do not need to be annotated with #[shader_item]"); }
+        }
+        _ => quote! { #item compile_error!("unsupported item type"); },
     }
+    .into()
 }
