@@ -41,7 +41,15 @@ pub struct Struct {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Field {
-    pub ty: Type,
+    pub ty: &'static Type,
+    pub kind: FieldKind,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FieldKind {
+    Normal,
+    VertexAttribute(usize),
+    Position,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
