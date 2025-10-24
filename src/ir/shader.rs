@@ -22,6 +22,33 @@ pub struct LinkedShaderBuffer<const TYPE_CAP: usize, const FN_CAP: usize> {
     pub fn_count: usize,
 }
 
+impl LinkedShader {
+    pub const fn type_id(&self, ty: &'static Type) -> usize {
+        let mut i = 0;
+        while i < self.types.len() {
+            if self.types[i].eq(ty) {
+                return i;
+            }
+
+            i += 1;
+        }
+
+        panic!("Type not found");
+    }
+
+    pub const fn fn_id(&self, function: &'static Function) -> usize {
+        let mut i = 0;
+        while i < self.functions.len() {
+            if self.functions[i].eq(function) {
+                return i;
+            }
+            i += 1;
+        }
+
+        panic!("Function not found");
+    }
+}
+
 #[doc(hidden)]
 impl<const TYPE_CAP: usize, const FN_CAP: usize> LinkedShaderBuffer<TYPE_CAP, FN_CAP> {
     pub const fn as_ref(&'static self) -> LinkedShader {

@@ -4,8 +4,8 @@ fn main() {
 
 use rsshader::{
     ir::{
-        EntryKind, Field, FieldKind, Function, Length, Primitive, Shader, Struct, Type, Variable,
-        Vector,
+        EntryKind, Expr, Field, FieldKind, Function, Length, Literal, Primitive, Shader, Stmt,
+        Struct, Type, Variable, Vector,
     },
     wgsl,
 };
@@ -45,8 +45,8 @@ const SHADER: &str = wgsl!(Shader {
             }),
         }],
         return_type: None,
-        stmts: &[],
+        stmts: &[0],
         expr_bank: &[],
-        stmt_bank: &[],
+        stmt_bank: &[Stmt::Return(Some(Expr::Literal(Literal::F32(1.0))))],
     }],
 });

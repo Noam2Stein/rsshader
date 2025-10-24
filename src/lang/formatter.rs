@@ -91,4 +91,45 @@ impl<'o> Formatter<'o> {
 
         self.write_str(s);
     }
+
+    pub const fn write_u32_hex(&mut self, value: u32) {
+        let value_digits = [
+            (value >> 28) & 0x0000000F,
+            (value >> 24) & 0x0000000F,
+            (value >> 20) & 0x0000000F,
+            (value >> 16) & 0x0000000F,
+            (value >> 12) & 0x0000000F,
+            (value >> 8) & 0x0000000F,
+            (value >> 4) & 0x0000000F,
+            (value >> 0) & 0x0000000F,
+        ];
+
+        let mut i = 0;
+        while i < value_digits.len() {
+            let digit = value_digits[i];
+
+            let hex_digit = match digit {
+                0 => '0',
+                1 => '1',
+                2 => '2',
+                3 => '3',
+                4 => '4',
+                5 => '5',
+                6 => '6',
+                7 => '7',
+                8 => '8',
+                9 => '9',
+                10 => 'A',
+                11 => 'B',
+                12 => 'C',
+                13 => 'D',
+                14 => 'E',
+                15 => 'F',
+                16.. => panic!(),
+            };
+
+            self.write_char(hex_digit);
+            i += 1;
+        }
+    }
 }
