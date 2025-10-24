@@ -3,46 +3,32 @@ fn main() {
 }
 
 use rsshader::{
-    ir::{
-        EntryKind, Expr, Field, FieldKind, Function, Length, Literal, Primitive, Shader, Stmt,
-        Struct, Type, Variable, Vector,
-    },
-    wgsl,
+    ir::{EntryKind, Expr, Function, Literal, Shader, Stmt, Variable},
+    shader_item, wgsl,
 };
+
+#[shader_item]
+#[derive(Debug, Copy, Clone)]
+struct Vertex {
+    pos: f32,
+    color: [f32; 5],
+    test: Helper,
+}
+
+#[shader_item]
+#[derive(Debug, Copy, Clone)]
+struct Helper {
+    a: f32,
+    b: bool,
+    c: f32,
+}
 
 const SHADER: &str = wgsl!(Shader {
     entries: &[&Function {
         entry_kind: Some(EntryKind::Vertex),
         parameters: &[Variable {
             id: 0,
-            ty: &Type::Struct(Struct {
-                fields: &[
-                    Field {
-                        id: 0,
-                        kind: FieldKind::VertexAttribute(0),
-                        ty: &Type::Primitive(Primitive::F32),
-                    },
-                    Field {
-                        id: 1,
-                        kind: FieldKind::Position,
-                        ty: &Type::Vector(Vector {
-                            length: Length::Four,
-                            primitive: Primitive::F32,
-                        }),
-                    },
-                    Field {
-                        id: 2,
-                        kind: FieldKind::Normal,
-                        ty: &Type::Struct(Struct {
-                            fields: &[Field {
-                                id: 0,
-                                kind: FieldKind::VertexAttribute(0),
-                                ty: &Type::Primitive(Primitive::Bool),
-                            }]
-                        })
-                    }
-                ],
-            }),
+            ty: &<Vertex as rsshader::reflection::ShaderType>::IR,
         }],
         return_type: None,
         stmts: &[0],
