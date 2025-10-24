@@ -1,6 +1,8 @@
+use rsshader_macros::ConstEq;
+
 use crate::ir::Type;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, ConstEq)]
 pub struct Function {
     pub entry_kind: Option<EntryKind>,
     pub parameters: &'static [Variable],
@@ -10,13 +12,13 @@ pub struct Function {
     pub stmt_bank: &'static [Stmt],
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, ConstEq)]
 pub enum EntryKind {
     Vertex,
     Fragment,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, ConstEq)]
 pub struct Variable {
     pub id: usize,
     pub ty: &'static Type,
@@ -30,7 +32,7 @@ pub enum Literal {
     Bool(bool),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, ConstEq)]
 pub enum Expr {
     Literal(Literal),
     Variable(Variable),
@@ -46,34 +48,32 @@ pub enum Expr {
     Div(ExprId, ExprId),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, ConstEq)]
 pub enum Place {
     Variable(Variable),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, ConstEq)]
 pub enum Stmt {
     VariableDecl(Variable),
     Assignment(Place, Expr),
     Return(Option<Expr>),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, ConstEq)]
 pub struct ExprId(pub usize);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, ConstEq)]
 pub struct StmtId(pub usize);
 
-impl PartialEq for Literal {
-    fn eq(&self, other: &Self) -> bool {
+impl Literal {
+    pub const fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Literal::F32(a), Literal::F32(b)) => a.to_bits() == b.to_bits(),
-            (Literal::I32(a), Literal::I32(b)) => a == b,
-            (Literal::U32(a), Literal::U32(b)) => a == b,
-            (Literal::Bool(a), Literal::Bool(b)) => a == b,
+            (Literal::I32(a), Literal::I32(b)) => *a == *b,
+            (Literal::U32(a), Literal::U32(b)) => *a == *b,
+            (Literal::Bool(a), Literal::Bool(b)) => *a == *b,
             _ => false,
         }
     }
 }
-
-impl Eq for Literal {}
