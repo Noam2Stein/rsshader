@@ -3,15 +3,14 @@ fn main() {
 }
 
 use rsshader::{
-    ir::{EntryKind, Expr, Function, Literal, Shader, Stmt, Variable},
+    ir::{EntryPointInfo, Expr, Function, Literal, Shader, Stmt, Variable, VertexFunctionInfo},
     shader_item, wgsl,
 };
 
 #[shader_item]
 #[derive(Debug, Copy, Clone)]
 struct Vertex {
-    pos: f32,
-    color: [f32; 5],
+    pos: bool,
     test: Helper,
 }
 
@@ -24,8 +23,11 @@ struct Helper {
 }
 
 const SHADER: &str = wgsl!(Shader {
-    entries: &[&Function {
-        entry_kind: Some(EntryKind::Vertex),
+    entry_points: &[&Function::UserDefined {
+        entry_point_info: Some(EntryPointInfo::Vertex(VertexFunctionInfo {
+            input_attrs: &[&<Vertex as rsshader::reflection::ShaderType>::IR],
+            output_attrs: &[],
+        })),
         parameters: &[Variable {
             id: 0,
             ty: &<Vertex as rsshader::reflection::ShaderType>::IR,

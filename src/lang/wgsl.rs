@@ -1,7 +1,7 @@
 use crate::{
     ir::{
-        Array, EntryKind, Expr, FieldKind, Function, Length, LinkedShader, Literal, Matrix, Place,
-        Primitive, Stmt, Type, Variable, Vector,
+        BuiltInFunction, EntryPointInfo, Expr, FragmentFunctionInfo, Function, Length,
+        LinkedShader, Literal, Place, Primitive, Stmt, Type, Variable, Vector, VertexFunctionInfo,
     },
     lang::Formatter,
 };
@@ -44,13 +44,6 @@ const fn fmt_type_decl(
             length: Length::Two | Length::Three | Length::Four,
         }) => {}
 
-        Type::Matrix(Matrix {
-            rows: Length::Two | Length::Three | Length::Four,
-            columns: Length::Two | Length::Three | Length::Four,
-        }) => {}
-
-        Type::Array(_) => {}
-
         Type::Struct(ty) => {
             f.write_str("struct type");
             f.write_i128(ty_idx as i128);
@@ -59,18 +52,6 @@ const fn fmt_type_decl(
             let mut field_idx = 0;
             while field_idx < ty.fields.len() {
                 let field = &ty.fields[field_idx];
-
-                match field.kind {
-                    FieldKind::Normal => {}
-                    FieldKind::VertexAttribute(attr_idx) => {
-                        f.write_str("\t@location(");
-                        f.write_i128(attr_idx as i128);
-                        f.write_str(")\n");
-                    }
-                    FieldKind::Position => {
-                        f.write_str("\t@builtin(position)\n");
-                    }
-                }
 
                 f.write_str("\tfield");
                 f.write_i128(field.id as i128);
@@ -111,41 +92,6 @@ const fn fmt_type_name(f: &mut Formatter, ty: &'static Type, shader: &'static Li
             }
         }
 
-        Type::Matrix(Matrix { rows, columns }) => {
-            f.write_str("mat");
-
-            match rows {
-                Length::Two => f.write_str("2"),
-                Length::Three => f.write_str("3"),
-                Length::Four => f.write_str("4"),
-            }
-
-            f.write_str("x");
-
-            match columns {
-                Length::Two => f.write_str("2"),
-                Length::Three => f.write_str("3"),
-                Length::Four => f.write_str("4"),
-            }
-
-            f.write_str("f");
-        }
-
-        Type::Array(Array {
-            length,
-            element_type,
-        }) => {
-            f.write_str("array<");
-            fmt_type_name(f, element_type, shader);
-
-            if let Some(length) = length {
-                f.write_str(", ");
-                f.write_i128(*length as i128);
-            }
-
-            f.write_str(">");
-        }
-
         Type::Struct(_) => {
             f.write_str("type");
             f.write_i128(shader.type_id(ty) as i128);
@@ -159,9 +105,51 @@ const fn fmt_fn_decl(
     fn_idx: usize,
     shader: &'static LinkedShader,
 ) {
-    match function.entry_kind {
-        Some(EntryKind::Vertex) => f.write_str("@vertex\n"),
-        Some(EntryKind::Fragment) => f.write_str("@fragment\n"),
+    let Function::UserDefined {
+        entry_point_info,
+        parameters,
+        return_type,
+        stmts,
+        expr_bank,
+        stmt_bank,
+    } = function
+    else {
+        return match function {
+            Function::BuiltIn(function) => fmt_builtin_fn_decl(f, function),
+            Function::UserDefined { .. } => panic!(),
+        };
+    };
+
+    match entry_point_info {
+        Some(EntryPointInfo::Vertex(VertexFunctionInfo {
+            input_attrs: _,
+            output_attrs,
+        })) => {
+            f.write_str("struct fn");
+            f.write_i128(fn_idx as i128);
+            f.write_str("_output {\n");
+            f.write_str("\t@builtin(position) position: vec4f,\n");
+
+            let mut attr_idx = 0;
+            while attr_idx < output_attrs.len() {
+                f.write_str("\tlocation(");
+                f.write_i128(attr_idx as i128);
+                f.write_str(")\n");
+                f.write_str("\tattr");
+                f.write_i128(attr_idx as i128);
+                f.write_str(": ");
+                fmt_type_name(f, output_attrs[attr_idx], shader);
+                f.write_str(",\n");
+
+                attr_idx += 1;
+            }
+
+            f.write_str("}\n\n");
+            f.write_str("@vertex\n");
+        }
+
+        Some(EntryPointInfo::Fragment(_)) => f.write_str("@fragment\n"),
+
         None => {}
     }
 
@@ -169,36 +157,87 @@ const fn fmt_fn_decl(
     f.write_i128(fn_idx as i128);
     f.write_str("(");
 
-    let mut param_idx = 0;
-    while param_idx < function.parameters.len() {
-        if param_idx > 0 {
-            f.write_str(", ");
+    match entry_point_info {
+        Some(EntryPointInfo::Vertex(VertexFunctionInfo {
+            input_attrs,
+            output_attrs: _,
+        })) => {
+            let mut attr_idx = 0;
+            while attr_idx < input_attrs.len() {
+                if attr_idx > 0 {
+                    f.write_str(", ");
+                }
+
+                f.write_str("@location(");
+                f.write_i128(attr_idx as i128);
+                f.write_str(") attr");
+                f.write_i128(attr_idx as i128);
+                f.write_str(": ");
+                fmt_type_name(f, input_attrs[attr_idx], shader);
+
+                attr_idx += 1;
+            }
+
+            f.write_str(") -> fn");
+            f.write_i128(fn_idx as i128);
+            f.write_str("_output");
         }
 
-        let param = function.parameters[param_idx];
+        Some(EntryPointInfo::Fragment(FragmentFunctionInfo { input_attrs })) => {
+            f.write_str("@builtin(position) position: vec4f");
 
-        f.write_str("var");
-        f.write_i128(param.id as i128);
-        f.write_str(": ");
-        fmt_type_name(f, param.ty, shader);
+            let mut attr_idx = 0;
+            while attr_idx < input_attrs.len() {
+                f.write_str(", ");
 
-        param_idx += 1;
-    }
+                let attr = input_attrs[attr_idx];
 
-    f.write_str(")");
+                f.write_str("@location(");
+                f.write_i128(attr_idx as i128);
+                f.write_str(") attr");
+                f.write_i128(attr_idx as i128);
+                f.write_str(": ");
+                fmt_type_name(f, attr, shader);
 
-    if let Some(return_type) = function.return_type {
-        f.write_str(" -> ");
-        fmt_type_name(f, return_type, shader);
+                attr_idx += 1;
+            }
+
+            f.write_str(") -> @location(0) vec4f");
+        }
+
+        None => {
+            let mut param_idx = 0;
+            while param_idx < parameters.len() {
+                if param_idx > 0 {
+                    f.write_str(", ");
+                }
+
+                let param = parameters[param_idx];
+
+                f.write_str("var");
+                f.write_i128(param.id as i128);
+                f.write_str(": ");
+                fmt_type_name(f, param.ty, shader);
+
+                param_idx += 1;
+            }
+
+            f.write_str(")");
+
+            if let Some(return_type) = return_type {
+                f.write_str(" -> ");
+                fmt_type_name(f, return_type, shader);
+            }
+        }
     }
 
     f.write_str(" {\n");
 
     let mut stmt_idx = 0;
-    while stmt_idx < function.stmts.len() {
-        let stmt = &function.stmt_bank[function.stmts[stmt_idx]];
+    while stmt_idx < stmts.len() {
+        let stmt = &stmt_bank[stmts[stmt_idx]];
 
-        fmt_stmt(f, &stmt, function, 1, shader);
+        fmt_stmt(f, &stmt, expr_bank, stmt_bank, 1, shader);
 
         stmt_idx += 1;
     }
@@ -206,10 +245,39 @@ const fn fmt_fn_decl(
     f.write_str("}\n\n");
 }
 
+const fn fmt_builtin_fn_decl(_f: &mut Formatter, function: &'static BuiltInFunction) {
+    match function {
+        BuiltInFunction::Neg(_) => {}
+        BuiltInFunction::Not(_) => {}
+
+        BuiltInFunction::Add(_, _) => {}
+        BuiltInFunction::Sub(_, _) => {}
+        BuiltInFunction::Mul(_, _) => {}
+        BuiltInFunction::Div(_, _) => {}
+        BuiltInFunction::Rem(_, _) => {}
+        BuiltInFunction::Shl(_, _) => {}
+        BuiltInFunction::Shr(_, _) => {}
+        BuiltInFunction::BitAnd(_, _) => {}
+        BuiltInFunction::BitOr(_, _) => {}
+        BuiltInFunction::BitXor(_, _) => {}
+
+        BuiltInFunction::Eq(_) => {}
+        BuiltInFunction::Ne(_) => {}
+        BuiltInFunction::Lt(_) => {}
+        BuiltInFunction::Gt(_) => {}
+        BuiltInFunction::Le(_) => {}
+        BuiltInFunction::Ge(_) => {}
+
+        BuiltInFunction::And => {}
+        BuiltInFunction::Or => {}
+    }
+}
+
 const fn fmt_stmt(
     f: &mut Formatter,
     stmt: &'static Stmt,
-    outer_fn: &'static Function,
+    expr_bank: &'static [Expr],
+    stmt_bank: &'static [Stmt],
     tab_lvl: usize,
     shader: &'static LinkedShader,
 ) {
@@ -231,7 +299,7 @@ const fn fmt_stmt(
         Stmt::Assignment(left, right) => {
             fmt_place(f, left, shader);
             f.write_str(" = ");
-            fmt_expr(f, right, outer_fn, shader);
+            fmt_expr(f, right, expr_bank, stmt_bank, shader);
             f.write_str(";\n");
         }
 
@@ -240,7 +308,7 @@ const fn fmt_stmt(
 
             if let Some(expr) = expr {
                 f.write_str(" ");
-                fmt_expr(f, expr, outer_fn, shader);
+                fmt_expr(f, expr, expr_bank, stmt_bank, shader);
             }
 
             f.write_str(";\n");
@@ -251,7 +319,8 @@ const fn fmt_stmt(
 const fn fmt_expr(
     f: &mut Formatter,
     expr: &'static Expr,
-    outer_fn: &'static Function,
+    expr_bank: &'static [Expr],
+    stmt_bank: &'static [Stmt],
     shader: &'static LinkedShader,
 ) {
     match expr {
@@ -278,64 +347,163 @@ const fn fmt_expr(
             f.write_i128(*id as i128);
         }
 
-        Expr::FunctionCall { function, args } => {
-            f.write_str("fn");
-            f.write_i128(shader.fn_id(function) as i128);
-            f.write_str("(");
+        Expr::FunctionCall { function, args } => match function {
+            Function::UserDefined { .. } => {
+                f.write_str("fn");
+                f.write_i128(shader.fn_id(function) as i128);
+                f.write_str("(");
 
-            let mut arg_idx = 0;
-            while arg_idx < args.len() {
-                if arg_idx > 0 {
-                    f.write_str(", ");
+                let mut arg_idx = 0;
+                while arg_idx < args.len() {
+                    if arg_idx > 0 {
+                        f.write_str(", ");
+                    }
+
+                    fmt_expr(f, &expr_bank[args[arg_idx].0], expr_bank, stmt_bank, shader);
+
+                    arg_idx += 1;
                 }
 
-                fmt_expr(f, &outer_fn.expr_bank[args[arg_idx].0], outer_fn, shader);
-
-                arg_idx += 1;
+                f.write_str(")");
             }
 
-            f.write_str(")");
-        }
-
-        Expr::Neg(expr) => {
-            let expr = &outer_fn.expr_bank[expr.0];
-
-            f.write_str("-(");
-            fmt_expr(f, expr, outer_fn, shader);
-            f.write_str(")");
-        }
-
-        Expr::Add(left, right) => {
-            f.write_str("(");
-            fmt_expr(f, &outer_fn.expr_bank[left.0], outer_fn, shader);
-            f.write_str(") + (");
-            fmt_expr(f, &outer_fn.expr_bank[right.0], outer_fn, shader);
-            f.write_str(")");
-        }
-
-        Expr::Sub(left, right) => {
-            f.write_str("(");
-            fmt_expr(f, &outer_fn.expr_bank[left.0], outer_fn, shader);
-            f.write_str(") - (");
-            fmt_expr(f, &outer_fn.expr_bank[right.0], outer_fn, shader);
-            f.write_str(")");
-        }
-
-        Expr::Mul(left, right) => {
-            f.write_str("(");
-            fmt_expr(f, &outer_fn.expr_bank[left.0], outer_fn, shader);
-            f.write_str(") * (");
-            fmt_expr(f, &outer_fn.expr_bank[right.0], outer_fn, shader);
-            f.write_str(")");
-        }
-
-        Expr::Div(left, right) => {
-            f.write_str("(");
-            fmt_expr(f, &outer_fn.expr_bank[left.0], outer_fn, shader);
-            f.write_str(") / (");
-            fmt_expr(f, &outer_fn.expr_bank[right.0], outer_fn, shader);
-            f.write_str(")");
-        }
+            Function::BuiltIn(BuiltInFunction::Neg(_)) => {
+                f.write_str("-(");
+                fmt_expr(f, &expr_bank[args[0].0], expr_bank, stmt_bank, shader);
+                f.write_str(")");
+            }
+            Function::BuiltIn(BuiltInFunction::Not(_)) => {
+                f.write_str("!(");
+                fmt_expr(f, &expr_bank[args[0].0], expr_bank, stmt_bank, shader);
+                f.write_str(")");
+            }
+            Function::BuiltIn(BuiltInFunction::Add(_, _)) => {
+                f.write_str("(");
+                fmt_expr(f, &expr_bank[args[0].0], expr_bank, stmt_bank, shader);
+                f.write_str(") + (");
+                fmt_expr(f, &expr_bank[args[1].0], expr_bank, stmt_bank, shader);
+                f.write_str(")");
+            }
+            Function::BuiltIn(BuiltInFunction::Sub(_, _)) => {
+                f.write_str("(");
+                fmt_expr(f, &expr_bank[args[0].0], expr_bank, stmt_bank, shader);
+                f.write_str(") - (");
+                fmt_expr(f, &expr_bank[args[1].0], expr_bank, stmt_bank, shader);
+                f.write_str(")");
+            }
+            Function::BuiltIn(BuiltInFunction::Mul(_, _)) => {
+                f.write_str("(");
+                fmt_expr(f, &expr_bank[args[0].0], expr_bank, stmt_bank, shader);
+                f.write_str(") * (");
+                fmt_expr(f, &expr_bank[args[1].0], expr_bank, stmt_bank, shader);
+                f.write_str(")");
+            }
+            Function::BuiltIn(BuiltInFunction::Div(_, _)) => {
+                f.write_str("(");
+                fmt_expr(f, &expr_bank[args[0].0], expr_bank, stmt_bank, shader);
+                f.write_str(") / (");
+                fmt_expr(f, &expr_bank[args[1].0], expr_bank, stmt_bank, shader);
+                f.write_str(")");
+            }
+            Function::BuiltIn(BuiltInFunction::Rem(_, _)) => {
+                f.write_str("(");
+                fmt_expr(f, &expr_bank[args[0].0], expr_bank, stmt_bank, shader);
+                f.write_str(") % (");
+                fmt_expr(f, &expr_bank[args[1].0], expr_bank, stmt_bank, shader);
+                f.write_str(")");
+            }
+            Function::BuiltIn(BuiltInFunction::Shl(_, _)) => {
+                f.write_str("(");
+                fmt_expr(f, &expr_bank[args[0].0], expr_bank, stmt_bank, shader);
+                f.write_str(") << (");
+                fmt_expr(f, &expr_bank[args[1].0], expr_bank, stmt_bank, shader);
+                f.write_str(")");
+            }
+            Function::BuiltIn(BuiltInFunction::Shr(_, _)) => {
+                f.write_str("(");
+                fmt_expr(f, &expr_bank[args[0].0], expr_bank, stmt_bank, shader);
+                f.write_str(") >> (");
+                fmt_expr(f, &expr_bank[args[1].0], expr_bank, stmt_bank, shader);
+                f.write_str(")");
+            }
+            Function::BuiltIn(BuiltInFunction::BitAnd(_, _)) => {
+                f.write_str("(");
+                fmt_expr(f, &expr_bank[args[0].0], expr_bank, stmt_bank, shader);
+                f.write_str(") & (");
+                fmt_expr(f, &expr_bank[args[1].0], expr_bank, stmt_bank, shader);
+                f.write_str(")");
+            }
+            Function::BuiltIn(BuiltInFunction::BitOr(_, _)) => {
+                f.write_str("(");
+                fmt_expr(f, &expr_bank[args[0].0], expr_bank, stmt_bank, shader);
+                f.write_str(") | (");
+                fmt_expr(f, &expr_bank[args[1].0], expr_bank, stmt_bank, shader);
+                f.write_str(")");
+            }
+            Function::BuiltIn(BuiltInFunction::BitXor(_, _)) => {
+                f.write_str("(");
+                fmt_expr(f, &expr_bank[args[0].0], expr_bank, stmt_bank, shader);
+                f.write_str(") ^ (");
+                fmt_expr(f, &expr_bank[args[1].0], expr_bank, stmt_bank, shader);
+                f.write_str(")");
+            }
+            Function::BuiltIn(BuiltInFunction::Eq(_)) => {
+                f.write_str("(");
+                fmt_expr(f, &expr_bank[args[0].0], expr_bank, stmt_bank, shader);
+                f.write_str(") == (");
+                fmt_expr(f, &expr_bank[args[1].0], expr_bank, stmt_bank, shader);
+                f.write_str(")");
+            }
+            Function::BuiltIn(BuiltInFunction::Ne(_)) => {
+                f.write_str("(");
+                fmt_expr(f, &expr_bank[args[0].0], expr_bank, stmt_bank, shader);
+                f.write_str(") != (");
+                fmt_expr(f, &expr_bank[args[1].0], expr_bank, stmt_bank, shader);
+                f.write_str(")");
+            }
+            Function::BuiltIn(BuiltInFunction::Lt(_)) => {
+                f.write_str("(");
+                fmt_expr(f, &expr_bank[args[0].0], expr_bank, stmt_bank, shader);
+                f.write_str(") < (");
+                fmt_expr(f, &expr_bank[args[1].0], expr_bank, stmt_bank, shader);
+                f.write_str(")");
+            }
+            Function::BuiltIn(BuiltInFunction::Gt(_)) => {
+                f.write_str("(");
+                fmt_expr(f, &expr_bank[args[0].0], expr_bank, stmt_bank, shader);
+                f.write_str(") > (");
+                fmt_expr(f, &expr_bank[args[1].0], expr_bank, stmt_bank, shader);
+                f.write_str(")");
+            }
+            Function::BuiltIn(BuiltInFunction::Le(_)) => {
+                f.write_str("(");
+                fmt_expr(f, &expr_bank[args[0].0], expr_bank, stmt_bank, shader);
+                f.write_str(") <= (");
+                fmt_expr(f, &expr_bank[args[1].0], expr_bank, stmt_bank, shader);
+                f.write_str(")");
+            }
+            Function::BuiltIn(BuiltInFunction::Ge(_)) => {
+                f.write_str("(");
+                fmt_expr(f, &expr_bank[args[0].0], expr_bank, stmt_bank, shader);
+                f.write_str(") >= (");
+                fmt_expr(f, &expr_bank[args[1].0], expr_bank, stmt_bank, shader);
+                f.write_str(")");
+            }
+            Function::BuiltIn(BuiltInFunction::And) => {
+                f.write_str("(");
+                fmt_expr(f, &expr_bank[args[0].0], expr_bank, stmt_bank, shader);
+                f.write_str(") && (");
+                fmt_expr(f, &expr_bank[args[1].0], expr_bank, stmt_bank, shader);
+                f.write_str(")");
+            }
+            Function::BuiltIn(BuiltInFunction::Or) => {
+                f.write_str("(");
+                fmt_expr(f, &expr_bank[args[0].0], expr_bank, stmt_bank, shader);
+                f.write_str(") || (");
+                fmt_expr(f, &expr_bank[args[1].0], expr_bank, stmt_bank, shader);
+                f.write_str(")");
+            }
+        },
     }
 }
 

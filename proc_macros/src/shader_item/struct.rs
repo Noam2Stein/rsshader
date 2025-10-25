@@ -53,7 +53,6 @@ pub fn shader_item(item: ItemStruct) -> TokenStream {
                     rsshader::ir::Field {
                         ty: &<#field_types as rsshader::reflection::ShaderType>::IR,
                         id: core::mem::offset_of!(Self, #field_members),
-                        kind: rsshader::ir::FieldKind::Normal,
                     },
                 )*],
             });
