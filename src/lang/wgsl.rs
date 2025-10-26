@@ -8,8 +8,8 @@ use crate::{
 
 #[macro_export]
 macro_rules! wgsl {
-    ($ir:expr) => {
-        $crate::shader!($ir => $crate::lang::fmt_wgsl)
+    ($($entry_point:path),* $(,)?) => {
+        $crate::shader!($($entry_point),* => $crate::lang::fmt_wgsl)
     };
 }
 

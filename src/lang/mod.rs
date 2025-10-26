@@ -6,7 +6,7 @@ pub use wgsl::*;
 
 #[macro_export]
 macro_rules! shader {
-    ($ir:expr => $fmt_fn:path) => {
-        $crate::rsshader_macros::shader!($ir => $fmt_fn)
+    ($($entry_points:path),* $(,)? => $fmt_fn:path) => {
+        $crate::rsshader_macros::shader!($($entry_points),* => $fmt_fn)
     };
 }

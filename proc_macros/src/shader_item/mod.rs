@@ -5,6 +5,7 @@ use crate::shader_item::util::Labels;
 
 mod util;
 
+mod r#fn;
 mod r#struct;
 
 pub fn shader_item(
@@ -18,6 +19,7 @@ pub fn shader_item(
 
     let item_output = match item {
         Item::Struct(item) => r#struct::shader_item(item, &mut errors, &mut labels),
+        Item::Fn(item) => r#fn::shader_item(item, &mut errors, &mut labels),
         Item::Const(item) => {
             quote! { #item compile_error!("constants do not need to be annotated with #[shader_item]"); }
         }

@@ -1,26 +1,39 @@
 use quote::quote;
 use syn::{
-    Expr, Path, Token,
+    Ident, Path, Token,
     parse::{ParseStream, Parser},
 };
 
 pub fn shader(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let parse_fn = |input: ParseStream| {
-        let ir = input.parse::<Expr>()?;
+        let mut entry_points = Vec::new();
+
+        while input.peek(Ident) || input.peek(Token![::]) {
+            entry_points.push(input.parse::<Path>()?);
+
+            if let Some(_) = input.parse::<Option<Token![,]>>()? {
+                continue;
+            } else {
+                break;
+            }
+        }
+
         let _ = input.parse::<Token![=>]>()?;
         let fmt_fn = input.parse::<Path>()?;
 
-        Ok((ir, fmt_fn))
+        Ok((entry_points, fmt_fn))
     };
 
-    let (ir, fmt_fn) = match parse_fn.parse2(input.into()) {
+    let (entry_points, fmt_fn) = match parse_fn.parse2(input.into()) {
         Ok(result) => result,
         Err(e) => return e.to_compile_error().into(),
     };
 
     quote! {{
         const RSSHADER_STR: &str = {
-            const RSSHADER_IR: rsshader::ir::Shader = #ir;
+            const RSSHADER_IR: rsshader::ir::Shader = rsshader::ir::Shader {
+                entry_points: &[#(&<#entry_points as rsshader::reflection::ShaderFn>::IR),*],
+            };
 
             const RSSHADER_LINKED_IR_BUF: rsshader::ir::LinkedShaderBuffer<128, 128> = rsshader::ir::LinkedShaderBuffer::link(&RSSHADER_IR);
 
