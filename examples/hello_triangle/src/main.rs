@@ -7,25 +7,25 @@ use rsshader::{
     shader_item, wgsl,
 };
 
-#[shader_item]
+#[shader_item(vertex, fragment)]
 #[derive(Debug, Copy, Clone)]
 struct Vertex {
-    pos: bool,
+    pos: f32,
     test: Helper,
 }
 
-#[shader_item]
+#[shader_item(vertex, fragment)]
 #[derive(Debug, Copy, Clone)]
 struct Helper {
     a: f32,
-    b: bool,
+    b: i32,
     c: f32,
 }
 
 const SHADER: &str = wgsl!(Shader {
     entry_points: &[&Function::UserDefined {
         entry_point_info: Some(EntryPointInfo::Vertex(VertexFunctionInfo {
-            input_attrs: &[&<Vertex as rsshader::reflection::ShaderType>::IR],
+            input_attrs: &[],
             output_attrs: &[],
         })),
         parameters: &[Variable {

@@ -1,8 +1,10 @@
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::ItemStruct;
+use syn::{ImplGenerics, ItemStruct, Type, TypeGenerics, TypeParam};
 
-pub fn shader_item(item: ItemStruct) -> TokenStream {
+use crate::shader_item::labels::Labels;
+
+pub fn shader_item(item: ItemStruct, labels: &mut Labels) -> TokenStream {
     let ItemStruct {
         attrs: _,
         vis: _,
@@ -15,34 +17,53 @@ pub fn shader_item(item: ItemStruct) -> TokenStream {
 
     let (impl_generics, ty_params, where_clause) = generics.split_for_impl();
 
-    let shader_type_where_predicates = generics
-        .type_params()
-        .map(|param| {
-            let param_name = &param.ident;
-            quote! { #param_name: rsshader::reflection::ShaderType }
-        })
-        .collect::<Vec<_>>();
+    let where_clause = {
+        let new_predicates = generics
+            .type_params()
+            .map(|param| {
+                let param_name = &param.ident;
+                quote! { #param_name: rsshader::reflection::ShaderType }
+            })
+            .collect::<Vec<_>>();
 
-    let where_clause = if !shader_type_where_predicates.is_empty() || where_clause.is_some() {
-        let where_predicates = match where_clause {
-            Some(where_clause) => where_clause
-                .predicates
-                .iter()
-                .map(|predicate| {
-                    quote! { #predicate }
-                })
-                .collect::<Vec<_>>(),
-            None => Vec::new(),
-        };
+        if !new_predicates.is_empty() || where_clause.is_some() {
+            let where_predicates = match where_clause {
+                Some(where_clause) => where_clause
+                    .predicates
+                    .iter()
+                    .map(|predicate| {
+                        quote! { #predicate }
+                    })
+                    .collect::<Vec<_>>(),
+                None => Vec::new(),
+            };
 
-        quote! { where #(#shader_type_where_predicates,)* #(#where_predicates),* }
-    } else {
-        quote! {}
+            quote! { where #(#new_predicates,)* #(#where_predicates,)* }
+        } else {
+            quote! {}
+        }
     };
 
     let field_types = fields.iter().map(|field| &field.ty).collect::<Vec<_>>();
 
     let field_members = fields.members().collect::<Vec<_>>();
+
+    let vertex_output = handle_vertex(
+        &item,
+        labels,
+        &impl_generics,
+        &ty_params,
+        &where_clause,
+        &field_types,
+    );
+    let fragment_output = handle_fragment(
+        &item,
+        labels,
+        &impl_generics,
+        &ty_params,
+        &where_clause,
+        &field_types,
+    );
 
     quote! {
         #item
@@ -56,6 +77,75 @@ pub fn shader_item(item: ItemStruct) -> TokenStream {
                     },
                 )*],
             });
+        }
+
+        #vertex_output
+        #fragment_output
+    }
+}
+
+fn handle_vertex(
+    item: &ItemStruct,
+    labels: &mut Labels,
+    impl_generics: &ImplGenerics,
+    ty_params: &TypeGenerics,
+    where_clause: &TokenStream,
+    field_types: &[&Type],
+) -> TokenStream {
+    if labels.find("vertex").is_none() {
+        return quote! {};
+    }
+
+    let ident = &item.ident;
+
+    let where_clause = if where_clause.is_empty() {
+        quote! {}
+    } else {
+        let new_predicates = item.generics.type_params().map(|TypeParam { ident, .. }| {
+            quote! { #ident: rsshader::reflection::VertexType }
+        });
+
+        quote! { #where_clause #(#new_predicates,)* }
+    };
+
+    quote! {
+        impl #impl_generics rsshader::reflection::VertexType for #ident #ty_params #where_clause {
+            const _ASSERT: () = {#(
+                <#field_types as rsshader::reflection::VertexType>::_ASSERT;
+            )*};
+        }
+    }
+}
+
+fn handle_fragment(
+    item: &ItemStruct,
+    labels: &mut Labels,
+    impl_generics: &ImplGenerics,
+    ty_params: &TypeGenerics,
+    where_clause: &TokenStream,
+    field_types: &[&Type],
+) -> TokenStream {
+    if labels.find("fragment").is_none() {
+        return quote! {};
+    }
+
+    let ident = &item.ident;
+
+    let where_clause = if where_clause.is_empty() {
+        quote! {}
+    } else {
+        let new_predicates = item.generics.type_params().map(|TypeParam { ident, .. }| {
+            quote! { #ident: rsshader::reflection::FragmentType }
+        });
+
+        quote! { #where_clause #(#new_predicates,)* }
+    };
+
+    quote! {
+        impl #impl_generics rsshader::reflection::FragmentType for #ident #ty_params #where_clause {
+            const _ASSERT: () = {#(
+                <#field_types as rsshader::reflection::FragmentType>::_ASSERT;
+            )*};
         }
     }
 }

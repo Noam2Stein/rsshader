@@ -1,18 +1,18 @@
 use crate::reflection::ShaderType;
 
-pub trait VertexType: ShaderType {
+pub trait FragmentType: ShaderType {
     #[doc(hidden)]
     const _ASSERT: ();
 }
 
-impl VertexType for f32 {
+impl FragmentType for f32 {
     const _ASSERT: () = ();
 }
 
-impl VertexType for i32 {
+impl FragmentType for i32 {
     const _ASSERT: () = ();
 }
 
-impl VertexType for u32 {
+impl FragmentType for u32 {
     const _ASSERT: () = ();
 }
