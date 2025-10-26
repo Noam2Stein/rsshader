@@ -1,41 +1,37 @@
-fn main() {
-    println!("{}", SHADER.replace("\t", "  "));
-}
-
-use rsshader::{
-    ir::{EntryPointInfo, Expr, Function, Literal, Shader, Stmt, Variable, VertexFunctionInfo},
-    shader_item, wgsl,
+use ggmath::{
+    f32::{FVec2, FVec3, FVec4},
+    vec4,
 };
+use rsshader::{shader_item, wgsl};
+
+fn main() {
+    println!("{}", wgsl!(vs_main, fs_main));
+}
 
 #[shader_item]
 #[derive(Debug, Copy, Clone)]
 struct Vertex {
-    pos: f32,
-    test: Helper,
+    position: FVec2,
+    color: FVec3,
 }
 
 #[shader_item(fragment)]
 #[derive(Debug, Copy, Clone)]
-struct Helper {
+struct Fragment {
     #[position]
-    a: f32,
-    b: i32,
-    c: f32,
+    position: FVec4,
+    color: FVec4,
 }
 
-const SHADER: &str = wgsl!(Shader {
-    entry_points: &[&Function::UserDefined {
-        entry_point_info: Some(EntryPointInfo::Vertex(VertexFunctionInfo {
-            input_attrs: &[],
-            output_attrs: &[],
-        })),
-        parameters: &[Variable {
-            id: 0,
-            ty: &<Vertex as rsshader::reflection::ShaderType>::IR,
-        }],
-        return_type: None,
-        stmts: &[0],
-        expr_bank: &[],
-        stmt_bank: &[Stmt::Return(Some(Expr::Literal(Literal::F32(1.0))))],
-    }],
-});
+#[shader_item(vertex)]
+fn vs_main(vertex: Vertex) -> Fragment {
+    Fragment {
+        position: vec4!(vertex.position, 0.0, 1.0),
+        color: vec4!(vertex.color, 1.0),
+    }
+}
+
+#[shader_item(fragment)]
+fn fs_main(fragment: Fragment) -> FVec4 {
+    fragment.color
+}
