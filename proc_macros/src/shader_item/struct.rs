@@ -166,28 +166,40 @@ fn fragment_label(item: &mut Struct, errors: &mut Vec<Error>, labels: &mut Label
         }
     };
 
-    let mut found_position_field = false;
+    let mut position_type = None;
     for field in &mut item.fields {
         if let Some(position_label) = field.labels.find("position") {
-            if found_position_field {
+            if position_type.is_some() {
                 errors.push(Error::new(
                     position_label,
                     "found multiple fields marked as #[position]",
                 ));
             } else {
-                found_position_field = true;
+                position_type = Some(field.ty.clone());
             }
         }
     }
 
-    if !found_position_field {
+    let assert_position_type = if let Some(position_type) = position_type {
+        quote! {
+            const fn _assert_position<T: rsshader::reflection::VectorType<4, f32>>() {}
+
+            _assert_position::<#position_type>();
+        }
+    } else {
         errors.push(Error::new(
             label_span,
             "expected a single field marked as #[position]",
         ));
-    }
+
+        quote! {}
+    };
 
     quote! {
-        impl #impl_generics rsshader::reflection::FragmentType for #ident #impl_ty_params #where_clause {}
+        impl #impl_generics rsshader::reflection::FragmentType for #ident #impl_ty_params #where_clause {
+            const __: () = {
+                #assert_position_type
+            };
+        }
     }
 }

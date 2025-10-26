@@ -4,5 +4,5 @@ name    = "hello_triangle"
 version = "0.1.0"
 
 [dependencies]
-ggmath   = "0.13.0"
+ggmath   = { path = "../../../ggmath", features = ["rsshader"] }
 rsshader = { path = "../.." }
