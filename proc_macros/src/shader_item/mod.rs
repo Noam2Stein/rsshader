@@ -1,9 +1,10 @@
 use quote::quote;
 use syn::{Item, parse_macro_input};
 
-use crate::shader_item::labels::Labels;
+use crate::shader_item::util::Labels;
 
-mod labels;
+mod util;
+
 mod r#struct;
 
 pub fn shader_item(
@@ -12,16 +13,11 @@ pub fn shader_item(
 ) -> proc_macro::TokenStream {
     let item = parse_macro_input!(item as Item);
 
-    let mut labels = match Labels::new(attr.into()) {
-        Ok(labels) => labels,
-        Err(error) => {
-            let error = error.to_compile_error();
-            return quote! { #item #error }.into();
-        }
-    };
+    let mut errors = Vec::new();
+    let mut labels = Labels::from_shader_item(attr.into(), &mut errors);
 
     let item_output = match item {
-        Item::Struct(item) => r#struct::shader_item(item, &mut labels),
+        Item::Struct(item) => r#struct::shader_item(item, &mut errors, &mut labels),
         Item::Const(item) => {
             quote! { #item compile_error!("constants do not need to be annotated with #[shader_item]"); }
         }
@@ -31,7 +27,9 @@ pub fn shader_item(
         _ => quote! { #item compile_error!("unsupported item type"); },
     };
 
-    let labels_errors = labels.errors();
+    labels.finish(&mut errors);
 
-    quote! { #item_output #labels_errors }.into()
+    let errors = errors.into_iter().map(|error| error.to_compile_error());
+
+    quote! { #item_output #(#errors)* }.into()
 }

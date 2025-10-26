@@ -54,7 +54,7 @@ const fn fmt_type_decl(
                 let field = &ty.fields[field_idx];
 
                 f.write_str("\tfield");
-                f.write_i128(field.id as i128);
+                f.write_i128(field.rust_offset as i128);
                 f.write_str(": ");
 
                 fmt_type_name(f, field.ty, shader);

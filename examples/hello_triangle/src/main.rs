@@ -7,16 +7,17 @@ use rsshader::{
     shader_item, wgsl,
 };
 
-#[shader_item(vertex, fragment)]
+#[shader_item]
 #[derive(Debug, Copy, Clone)]
 struct Vertex {
     pos: f32,
     test: Helper,
 }
 
-#[shader_item(vertex, fragment)]
+#[shader_item(fragment)]
 #[derive(Debug, Copy, Clone)]
 struct Helper {
+    #[position]
     a: f32,
     b: i32,
     c: f32,

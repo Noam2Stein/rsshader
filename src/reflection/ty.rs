@@ -4,6 +4,8 @@ pub trait ShaderType: Copy + 'static + Send + Sync {
     const IR: Type;
 }
 
+pub trait FragmentType: ShaderType {}
+
 impl ShaderType for f32 {
     const IR: Type = Type::Primitive(Primitive::F32);
 }

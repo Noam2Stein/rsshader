@@ -36,5 +36,11 @@ pub struct Struct {
 #[derive(Debug, Clone, Copy, ConstEq)]
 pub struct Field {
     pub ty: &'static Type,
-    pub id: usize,
+    pub rust_offset: usize,
+    pub marker: Option<FieldMarker>,
+}
+
+#[derive(Debug, Clone, Copy, ConstEq)]
+pub enum FieldMarker {
+    Position,
 }
