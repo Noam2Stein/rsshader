@@ -1,14 +1,14 @@
 use rsshader_macros::ConstEq;
 
 #[derive(Debug, Clone, Copy, ConstEq)]
-pub enum Type {
-    Primitive(Primitive),
-    Vector(Vector),
-    Struct(Struct),
+pub enum TypeIr {
+    Primitive(PrimitiveIr),
+    Vector(VectorIr),
+    Struct(StructIr),
 }
 
 #[derive(Debug, Clone, Copy, ConstEq)]
-pub enum Primitive {
+pub enum PrimitiveIr {
     F32,
     I32,
     U32,
@@ -16,31 +16,31 @@ pub enum Primitive {
 }
 
 #[derive(Debug, Clone, Copy, ConstEq)]
-pub struct Vector {
-    pub length: Length,
-    pub primitive: Primitive,
+pub struct VectorIr {
+    pub length: LengthIr,
+    pub primitive: PrimitiveIr,
 }
 
 #[derive(Debug, Clone, Copy, ConstEq)]
-pub enum Length {
+pub enum LengthIr {
     Two,
     Three,
     Four,
 }
 
 #[derive(Debug, Clone, Copy, ConstEq)]
-pub struct Struct {
-    pub fields: &'static [Field],
+pub struct StructIr {
+    pub fields: &'static [FieldIr],
 }
 
 #[derive(Debug, Clone, Copy, ConstEq)]
-pub struct Field {
-    pub ty: &'static Type,
+pub struct FieldIr {
+    pub ty: &'static TypeIr,
     pub rust_offset: usize,
-    pub marker: Option<FieldMarker>,
+    pub marker: Option<FieldMarkerIr>,
 }
 
 #[derive(Debug, Clone, Copy, ConstEq)]
-pub enum FieldMarker {
+pub enum FieldMarkerIr {
     Position,
 }

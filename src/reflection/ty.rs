@@ -1,7 +1,7 @@
-use crate::ir::{Primitive, Type};
+use crate::ir::{PrimitiveIr, TypeIr};
 
 pub trait ShaderType: Copy + 'static + Send + Sync {
-    const IR: Type;
+    const IR: TypeIr;
 }
 
 pub trait FragmentType: ShaderType {
@@ -13,19 +13,19 @@ pub trait PrimitiveType: ShaderType {}
 pub trait VectorType<const N: usize, T: PrimitiveType>: ShaderType {}
 
 impl ShaderType for f32 {
-    const IR: Type = Type::Primitive(Primitive::F32);
+    const IR: TypeIr = TypeIr::Primitive(PrimitiveIr::F32);
 }
 
 impl ShaderType for i32 {
-    const IR: Type = Type::Primitive(Primitive::I32);
+    const IR: TypeIr = TypeIr::Primitive(PrimitiveIr::I32);
 }
 
 impl ShaderType for u32 {
-    const IR: Type = Type::Primitive(Primitive::U32);
+    const IR: TypeIr = TypeIr::Primitive(PrimitiveIr::U32);
 }
 
 impl ShaderType for bool {
-    const IR: Type = Type::Primitive(Primitive::Bool);
+    const IR: TypeIr = TypeIr::Primitive(PrimitiveIr::Bool);
 }
 
 impl PrimitiveType for f32 {}

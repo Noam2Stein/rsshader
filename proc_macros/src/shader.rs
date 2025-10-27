@@ -31,13 +31,13 @@ pub fn shader(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
     quote! {{
         const RSSHADER_STR: &str = {
-            const RSSHADER_IR: rsshader::ir::Shader = rsshader::ir::Shader {
+            const RSSHADER_IR: rsshader::ir::ShaderIr = rsshader::ir::ShaderIr {
                 entry_points: &[#(&<#entry_points as rsshader::reflection::ShaderFn>::IR),*],
             };
 
-            const RSSHADER_LINKED_IR_BUF: rsshader::ir::LinkedShaderBuffer<128, 128> = rsshader::ir::LinkedShaderBuffer::link(&RSSHADER_IR);
+            const RSSHADER_LINKED_IR_BUF: rsshader::ir::LinkedShaderIrBuffer<128, 128> = rsshader::ir::LinkedShaderIrBuffer::link(&RSSHADER_IR);
 
-            const RSSHADER_LINKED_IR: rsshader::ir::LinkedShader = RSSHADER_LINKED_IR_BUF.as_ref();
+            const RSSHADER_LINKED_IR: rsshader::ir::LinkedShaderIr = RSSHADER_LINKED_IR_BUF.as_ref();
 
             const RSSHADER_LEN: usize = {
                 let mut f = rsshader::lang::Formatter::without_output();

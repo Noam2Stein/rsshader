@@ -30,7 +30,7 @@ pub fn shader_item(item: ItemFn, errors: &mut Vec<Error>, labels: &mut Labels) -
         #vis struct #ident {}
 
         impl rsshader::reflection::ShaderFn for #ident {
-            const IR: rsshader::ir::Function = todo!();
+            const IR: rsshader::ir::FnIr = todo!();
         }
     }
 }

@@ -1,5 +1,5 @@
-use crate::ir::Function;
+use crate::ir::FnIr;
 
 pub trait ShaderFn {
-    const IR: Function;
+    const IR: FnIr;
 }

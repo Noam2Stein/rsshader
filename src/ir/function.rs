@@ -1,72 +1,72 @@
 use rsshader_macros::ConstEq;
 
-use crate::ir::Type;
+use crate::ir::TypeIr;
 
 #[derive(Debug, Clone, Copy, ConstEq)]
-pub enum Function {
+pub enum FnIr {
     UserDefined {
-        entry_point_info: Option<EntryPointInfo>,
-        parameters: &'static [Variable],
-        return_type: Option<&'static Type>,
+        entry_point_info: Option<EntryPointInfoIr>,
+        parameters: &'static [VariableIr],
+        return_type: Option<&'static TypeIr>,
         stmts: &'static [usize],
-        expr_bank: &'static [Expr],
-        stmt_bank: &'static [Stmt],
+        expr_bank: &'static [ExprIr],
+        stmt_bank: &'static [StmtIr],
     },
-    BuiltIn(BuiltInFunction),
+    BuiltIn(BuiltInFnIr),
 }
 
 #[derive(Debug, Clone, Copy, ConstEq)]
-pub enum BuiltInFunction {
-    Neg(&'static Type),
-    Not(&'static Type),
+pub enum BuiltInFnIr {
+    Neg(&'static TypeIr),
+    Not(&'static TypeIr),
 
-    Add(&'static Type, &'static Type),
-    Sub(&'static Type, &'static Type),
-    Mul(&'static Type, &'static Type),
-    Div(&'static Type, &'static Type),
-    Rem(&'static Type, &'static Type),
-    Shl(&'static Type, &'static Type),
-    Shr(&'static Type, &'static Type),
-    BitAnd(&'static Type, &'static Type),
-    BitOr(&'static Type, &'static Type),
-    BitXor(&'static Type, &'static Type),
+    Add(&'static TypeIr, &'static TypeIr),
+    Sub(&'static TypeIr, &'static TypeIr),
+    Mul(&'static TypeIr, &'static TypeIr),
+    Div(&'static TypeIr, &'static TypeIr),
+    Rem(&'static TypeIr, &'static TypeIr),
+    Shl(&'static TypeIr, &'static TypeIr),
+    Shr(&'static TypeIr, &'static TypeIr),
+    BitAnd(&'static TypeIr, &'static TypeIr),
+    BitOr(&'static TypeIr, &'static TypeIr),
+    BitXor(&'static TypeIr, &'static TypeIr),
 
-    Eq(&'static Type),
-    Ne(&'static Type),
-    Lt(&'static Type),
-    Gt(&'static Type),
-    Le(&'static Type),
-    Ge(&'static Type),
+    Eq(&'static TypeIr),
+    Ne(&'static TypeIr),
+    Lt(&'static TypeIr),
+    Gt(&'static TypeIr),
+    Le(&'static TypeIr),
+    Ge(&'static TypeIr),
 
     And,
     Or,
 }
 
 #[derive(Debug, Clone, Copy, ConstEq)]
-pub enum EntryPointInfo {
-    Vertex(VertexFunctionInfo),
-    Fragment(FragmentFunctionInfo),
+pub enum EntryPointInfoIr {
+    Vertex(VertexFunctionInfoIr),
+    Fragment(FragmentFunctionInfoIr),
 }
 
 #[derive(Debug, Clone, Copy, ConstEq)]
-pub struct VertexFunctionInfo {
-    pub input_attrs: &'static [&'static Type],
-    pub output_attrs: &'static [&'static Type],
+pub struct VertexFunctionInfoIr {
+    pub input_attrs: &'static [&'static TypeIr],
+    pub output_attrs: &'static [&'static TypeIr],
 }
 
 #[derive(Debug, Clone, Copy, ConstEq)]
-pub struct FragmentFunctionInfo {
-    pub input_attrs: &'static [&'static Type],
+pub struct FragmentFunctionInfoIr {
+    pub input_attrs: &'static [&'static TypeIr],
 }
 
 #[derive(Debug, Clone, Copy, ConstEq)]
-pub struct Variable {
+pub struct VariableIr {
     pub id: usize,
-    pub ty: &'static Type,
+    pub ty: &'static TypeIr,
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum Literal {
+pub enum LiteralIr {
     F32(f32),
     I32(i32),
     U32(u32),
@@ -74,40 +74,40 @@ pub enum Literal {
 }
 
 #[derive(Debug, Clone, Copy, ConstEq)]
-pub enum Expr {
-    Literal(Literal),
-    Variable(Variable),
+pub enum ExprIr {
+    Literal(LiteralIr),
+    Variable(VariableIr),
     FunctionCall {
-        function: &'static Function,
-        args: &'static [ExprId],
+        function: &'static FnIr,
+        args: &'static [ExprIrId],
     },
 }
 
 #[derive(Debug, Clone, Copy, ConstEq)]
-pub enum Place {
-    Variable(Variable),
+pub enum PlaceIr {
+    Variable(VariableIr),
 }
 
 #[derive(Debug, Clone, Copy, ConstEq)]
-pub enum Stmt {
-    VariableDecl(Variable),
-    Assignment(Place, Expr),
-    Return(Option<Expr>),
+pub enum StmtIr {
+    VariableDecl(VariableIr),
+    Assignment(PlaceIr, ExprIr),
+    Return(Option<ExprIr>),
 }
 
 #[derive(Debug, Clone, Copy, ConstEq)]
-pub struct ExprId(pub usize);
+pub struct ExprIrId(pub usize);
 
 #[derive(Debug, Clone, Copy, ConstEq)]
-pub struct StmtId(pub usize);
+pub struct StmtIrId(pub usize);
 
-impl Literal {
+impl LiteralIr {
     pub const fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (Literal::F32(a), Literal::F32(b)) => a.to_bits() == b.to_bits(),
-            (Literal::I32(a), Literal::I32(b)) => *a == *b,
-            (Literal::U32(a), Literal::U32(b)) => *a == *b,
-            (Literal::Bool(a), Literal::Bool(b)) => *a == *b,
+            (LiteralIr::F32(a), LiteralIr::F32(b)) => a.to_bits() == b.to_bits(),
+            (LiteralIr::I32(a), LiteralIr::I32(b)) => *a == *b,
+            (LiteralIr::U32(a), LiteralIr::U32(b)) => *a == *b,
+            (LiteralIr::Bool(a), LiteralIr::Bool(b)) => *a == *b,
             _ => false,
         }
     }

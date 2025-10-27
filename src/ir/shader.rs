@@ -1,23 +1,23 @@
 use rsshader_macros::ConstEq;
 
 use crate::ir::{
-    BuiltInFunction, EntryPointInfo, Expr, Function, Literal, Place, Primitive, Stmt, Struct, Type,
-    Variable, Vector,
+    BuiltInFnIr, EntryPointInfoIr, ExprIr, FnIr, LiteralIr, PlaceIr, PrimitiveIr, StmtIr, StructIr,
+    TypeIr, VariableIr, VectorIr,
 };
 
 #[derive(Debug, Clone, Copy, ConstEq)]
-pub struct Shader {
-    pub entry_points: &'static [&'static Function],
+pub struct ShaderIr {
+    pub entry_points: &'static [&'static FnIr],
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct LinkedShader {
-    pub types: &'static [&'static Type],
-    pub functions: &'static [&'static Function],
+pub struct LinkedShaderIr {
+    pub types: &'static [&'static TypeIr],
+    pub functions: &'static [&'static FnIr],
 }
 
-impl LinkedShader {
-    pub const fn type_id(&self, ty: &'static Type) -> usize {
+impl LinkedShaderIr {
+    pub const fn type_id(&self, ty: &'static TypeIr) -> usize {
         let mut i = 0;
         while i < self.types.len() {
             if self.types[i].eq(ty) {
@@ -30,7 +30,7 @@ impl LinkedShader {
         panic!("Type not found");
     }
 
-    pub const fn fn_id(&self, function: &'static Function) -> usize {
+    pub const fn fn_id(&self, function: &'static FnIr) -> usize {
         let mut i = 0;
         while i < self.functions.len() {
             if self.functions[i].eq(function) {
@@ -45,21 +45,21 @@ impl LinkedShader {
 
 #[doc(hidden)]
 #[derive(Debug, Clone, Copy)]
-pub struct LinkedShaderBuffer<const TYPE_CAP: usize, const FN_CAP: usize> {
-    pub types: [&'static Type; TYPE_CAP],
+pub struct LinkedShaderIrBuffer<const TYPE_CAP: usize, const FN_CAP: usize> {
+    pub types: [&'static TypeIr; TYPE_CAP],
     pub type_count: usize,
-    pub functions: [&'static Function; FN_CAP],
+    pub functions: [&'static FnIr; FN_CAP],
     pub fn_count: usize,
 }
 
 #[doc(hidden)]
-impl<const TYPE_CAP: usize, const FN_CAP: usize> LinkedShaderBuffer<TYPE_CAP, FN_CAP> {
-    pub const fn as_ref(&'static self) -> LinkedShader {
+impl<const TYPE_CAP: usize, const FN_CAP: usize> LinkedShaderIrBuffer<TYPE_CAP, FN_CAP> {
+    pub const fn as_ref(&'static self) -> LinkedShaderIr {
         assert!(self.type_count <= TYPE_CAP);
         assert!(self.fn_count <= FN_CAP);
 
         // SAFETY: the slices are valid because the type_count and fn_count are less than or equal to the constants
-        LinkedShader {
+        LinkedShaderIr {
             types: &unsafe { core::slice::from_raw_parts(self.types.as_ptr(), self.type_count) },
             functions: &unsafe {
                 core::slice::from_raw_parts(self.functions.as_ptr(), self.fn_count)
@@ -67,11 +67,11 @@ impl<const TYPE_CAP: usize, const FN_CAP: usize> LinkedShaderBuffer<TYPE_CAP, FN
         }
     }
 
-    pub const fn link(shader: &Shader) -> Self {
+    pub const fn link(shader: &ShaderIr) -> Self {
         let mut output = Self {
-            types: [&Type::Primitive(Primitive::F32); TYPE_CAP],
+            types: [&TypeIr::Primitive(PrimitiveIr::F32); TYPE_CAP],
             type_count: 0,
-            functions: [&Function::BuiltIn(BuiltInFunction::Neg(&Type::Primitive(Primitive::F32)));
+            functions: [&FnIr::BuiltIn(BuiltInFnIr::Neg(&TypeIr::Primitive(PrimitiveIr::F32)));
                 FN_CAP],
             fn_count: 0,
         };
@@ -85,7 +85,7 @@ impl<const TYPE_CAP: usize, const FN_CAP: usize> LinkedShaderBuffer<TYPE_CAP, FN
         output
     }
 
-    const fn link_fn(&mut self, function: &'static Function) {
+    const fn link_fn(&mut self, function: &'static FnIr) {
         let mut i = 0;
         while i < self.fn_count {
             if self.functions[i].eq(function) {
@@ -98,7 +98,7 @@ impl<const TYPE_CAP: usize, const FN_CAP: usize> LinkedShaderBuffer<TYPE_CAP, FN
         self.fn_count += 1;
 
         match function {
-            Function::UserDefined {
+            FnIr::UserDefined {
                 entry_point_info,
                 parameters,
                 return_type,
@@ -107,7 +107,7 @@ impl<const TYPE_CAP: usize, const FN_CAP: usize> LinkedShaderBuffer<TYPE_CAP, FN
                 stmt_bank,
             } => {
                 match entry_point_info {
-                    Some(EntryPointInfo::Vertex(info)) => {
+                    Some(EntryPointInfoIr::Vertex(info)) => {
                         let mut i = 0;
                         while i < info.input_attrs.len() {
                             self.link_type(info.input_attrs[i]);
@@ -120,7 +120,7 @@ impl<const TYPE_CAP: usize, const FN_CAP: usize> LinkedShaderBuffer<TYPE_CAP, FN
                             i += 1;
                         }
                     }
-                    Some(EntryPointInfo::Fragment(info)) => {
+                    Some(EntryPointInfoIr::Fragment(info)) => {
                         let mut i = 0;
                         while i < info.input_attrs.len() {
                             self.link_type(info.input_attrs[i]);
@@ -153,66 +153,66 @@ impl<const TYPE_CAP: usize, const FN_CAP: usize> LinkedShaderBuffer<TYPE_CAP, FN
                 }
             }
 
-            Function::BuiltIn(function) => self.link_builtin_fn(function),
+            FnIr::BuiltIn(function) => self.link_builtin_fn(function),
         }
     }
 
-    const fn link_builtin_fn(&mut self, function: &'static BuiltInFunction) {
+    const fn link_builtin_fn(&mut self, function: &'static BuiltInFnIr) {
         match function {
-            BuiltInFunction::Neg(a) => self.link_type(a),
-            BuiltInFunction::Not(a) => self.link_type(a),
-            BuiltInFunction::Add(a, b) => {
+            BuiltInFnIr::Neg(a) => self.link_type(a),
+            BuiltInFnIr::Not(a) => self.link_type(a),
+            BuiltInFnIr::Add(a, b) => {
                 self.link_type(a);
                 self.link_type(b);
             }
-            BuiltInFunction::Sub(a, b) => {
+            BuiltInFnIr::Sub(a, b) => {
                 self.link_type(a);
                 self.link_type(b);
             }
-            BuiltInFunction::Mul(a, b) => {
+            BuiltInFnIr::Mul(a, b) => {
                 self.link_type(a);
                 self.link_type(b);
             }
-            BuiltInFunction::Div(a, b) => {
+            BuiltInFnIr::Div(a, b) => {
                 self.link_type(a);
                 self.link_type(b);
             }
-            BuiltInFunction::Rem(a, b) => {
+            BuiltInFnIr::Rem(a, b) => {
                 self.link_type(a);
                 self.link_type(b);
             }
-            BuiltInFunction::Shl(a, b) => {
+            BuiltInFnIr::Shl(a, b) => {
                 self.link_type(a);
                 self.link_type(b);
             }
-            BuiltInFunction::Shr(a, b) => {
+            BuiltInFnIr::Shr(a, b) => {
                 self.link_type(a);
                 self.link_type(b);
             }
-            BuiltInFunction::BitAnd(a, b) => {
+            BuiltInFnIr::BitAnd(a, b) => {
                 self.link_type(a);
                 self.link_type(b);
             }
-            BuiltInFunction::BitOr(a, b) => {
+            BuiltInFnIr::BitOr(a, b) => {
                 self.link_type(a);
                 self.link_type(b);
             }
-            BuiltInFunction::BitXor(a, b) => {
+            BuiltInFnIr::BitXor(a, b) => {
                 self.link_type(a);
                 self.link_type(b);
             }
-            BuiltInFunction::Eq(a) => self.link_type(a),
-            BuiltInFunction::Ne(a) => self.link_type(a),
-            BuiltInFunction::Lt(a) => self.link_type(a),
-            BuiltInFunction::Gt(a) => self.link_type(a),
-            BuiltInFunction::Le(a) => self.link_type(a),
-            BuiltInFunction::Ge(a) => self.link_type(a),
-            BuiltInFunction::And => self.link_type(&Type::Primitive(Primitive::Bool)),
-            BuiltInFunction::Or => self.link_type(&Type::Primitive(Primitive::Bool)),
+            BuiltInFnIr::Eq(a) => self.link_type(a),
+            BuiltInFnIr::Ne(a) => self.link_type(a),
+            BuiltInFnIr::Lt(a) => self.link_type(a),
+            BuiltInFnIr::Gt(a) => self.link_type(a),
+            BuiltInFnIr::Le(a) => self.link_type(a),
+            BuiltInFnIr::Ge(a) => self.link_type(a),
+            BuiltInFnIr::And => self.link_type(&TypeIr::Primitive(PrimitiveIr::Bool)),
+            BuiltInFnIr::Or => self.link_type(&TypeIr::Primitive(PrimitiveIr::Bool)),
         }
     }
 
-    const fn link_type(&mut self, ty: &'static Type) {
+    const fn link_type(&mut self, ty: &'static TypeIr) {
         let mut i = 0;
         while i < self.type_count {
             if self.types[i].eq(ty) {
@@ -225,29 +225,29 @@ impl<const TYPE_CAP: usize, const FN_CAP: usize> LinkedShaderBuffer<TYPE_CAP, FN
         self.type_count += 1;
 
         match ty {
-            Type::Primitive(_) => {}
+            TypeIr::Primitive(_) => {}
 
-            Type::Vector(Vector {
+            TypeIr::Vector(VectorIr {
                 length: _,
-                primitive: Primitive::F32,
-            }) => self.link_type(&Type::Primitive(Primitive::F32)),
+                primitive: PrimitiveIr::F32,
+            }) => self.link_type(&TypeIr::Primitive(PrimitiveIr::F32)),
 
-            Type::Vector(Vector {
+            TypeIr::Vector(VectorIr {
                 length: _,
-                primitive: Primitive::I32,
-            }) => self.link_type(&Type::Primitive(Primitive::I32)),
+                primitive: PrimitiveIr::I32,
+            }) => self.link_type(&TypeIr::Primitive(PrimitiveIr::I32)),
 
-            Type::Vector(Vector {
+            TypeIr::Vector(VectorIr {
                 length: _,
-                primitive: Primitive::U32,
-            }) => self.link_type(&Type::Primitive(Primitive::U32)),
+                primitive: PrimitiveIr::U32,
+            }) => self.link_type(&TypeIr::Primitive(PrimitiveIr::U32)),
 
-            Type::Vector(Vector {
+            TypeIr::Vector(VectorIr {
                 length: _,
-                primitive: Primitive::Bool,
-            }) => self.link_type(&Type::Primitive(Primitive::Bool)),
+                primitive: PrimitiveIr::Bool,
+            }) => self.link_type(&TypeIr::Primitive(PrimitiveIr::Bool)),
 
-            Type::Struct(Struct { fields }) => {
+            TypeIr::Struct(StructIr { fields }) => {
                 let mut i = 0;
                 while i < fields.len() {
                     self.link_type(fields[i].ty);
@@ -257,37 +257,45 @@ impl<const TYPE_CAP: usize, const FN_CAP: usize> LinkedShaderBuffer<TYPE_CAP, FN
         }
     }
 
-    const fn link_expr(&mut self, expr: &'static Expr) {
+    const fn link_expr(&mut self, expr: &'static ExprIr) {
         match expr {
-            Expr::Literal(Literal::F32(_)) => self.link_type(&Type::Primitive(Primitive::F32)),
-            Expr::Literal(Literal::I32(_)) => self.link_type(&Type::Primitive(Primitive::I32)),
-            Expr::Literal(Literal::U32(_)) => self.link_type(&Type::Primitive(Primitive::U32)),
-            Expr::Literal(Literal::Bool(_)) => self.link_type(&Type::Primitive(Primitive::Bool)),
+            ExprIr::Literal(LiteralIr::F32(_)) => {
+                self.link_type(&TypeIr::Primitive(PrimitiveIr::F32))
+            }
+            ExprIr::Literal(LiteralIr::I32(_)) => {
+                self.link_type(&TypeIr::Primitive(PrimitiveIr::I32))
+            }
+            ExprIr::Literal(LiteralIr::U32(_)) => {
+                self.link_type(&TypeIr::Primitive(PrimitiveIr::U32))
+            }
+            ExprIr::Literal(LiteralIr::Bool(_)) => {
+                self.link_type(&TypeIr::Primitive(PrimitiveIr::Bool))
+            }
 
-            Expr::Variable(Variable { ty, .. }) => self.link_type(ty),
-            Expr::FunctionCall { function, .. } => self.link_fn(function),
+            ExprIr::Variable(VariableIr { ty, .. }) => self.link_type(ty),
+            ExprIr::FunctionCall { function, .. } => self.link_fn(function),
         }
     }
 
-    const fn link_place(&mut self, place: &'static Place) {
+    const fn link_place(&mut self, place: &'static PlaceIr) {
         match place {
-            Place::Variable(Variable { ty, .. }) => self.link_type(ty),
+            PlaceIr::Variable(VariableIr { ty, .. }) => self.link_type(ty),
         }
     }
 
-    const fn link_stmt(&mut self, stmt: &'static Stmt) {
+    const fn link_stmt(&mut self, stmt: &'static StmtIr) {
         match stmt {
-            Stmt::VariableDecl(Variable { ty, .. }) => self.link_type(ty),
+            StmtIr::VariableDecl(VariableIr { ty, .. }) => self.link_type(ty),
 
-            Stmt::Assignment(place, expr) => {
+            StmtIr::Assignment(place, expr) => {
                 self.link_place(place);
                 self.link_expr(expr);
             }
 
-            Stmt::Return(Some(expr)) => {
+            StmtIr::Return(Some(expr)) => {
                 self.link_expr(expr);
             }
-            Stmt::Return(None) => {}
+            StmtIr::Return(None) => {}
         }
     }
 }

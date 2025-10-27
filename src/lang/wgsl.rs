@@ -1,7 +1,8 @@
 use crate::{
     ir::{
-        BuiltInFunction, EntryPointInfo, Expr, FragmentFunctionInfo, Function, Length,
-        LinkedShader, Literal, Place, Primitive, Stmt, Type, Variable, Vector, VertexFunctionInfo,
+        BuiltInFnIr, EntryPointInfoIr, ExprIr, FnIr, FragmentFunctionInfoIr, LengthIr,
+        LinkedShaderIr, LiteralIr, PlaceIr, PrimitiveIr, StmtIr, TypeIr, VariableIr, VectorIr,
+        VertexFunctionInfoIr,
     },
     lang::Formatter,
 };
@@ -14,7 +15,7 @@ macro_rules! wgsl {
 }
 
 #[doc(hidden)]
-pub const fn fmt_wgsl(f: &mut Formatter, shader: &'static LinkedShader) {
+pub const fn fmt_wgsl(f: &mut Formatter, shader: &'static LinkedShaderIr) {
     let mut ty_idx = 0;
     while ty_idx < shader.types.len() {
         fmt_type_decl(f, &shader.types[ty_idx], ty_idx, shader);
@@ -32,19 +33,21 @@ pub const fn fmt_wgsl(f: &mut Formatter, shader: &'static LinkedShader) {
 
 const fn fmt_type_decl(
     f: &mut Formatter,
-    ty: &'static Type,
+    ty: &'static TypeIr,
     ty_idx: usize,
-    shader: &'static LinkedShader,
+    shader: &'static LinkedShaderIr,
 ) {
     match ty {
-        Type::Primitive(Primitive::F32 | Primitive::I32 | Primitive::U32 | Primitive::Bool) => {}
+        TypeIr::Primitive(
+            PrimitiveIr::F32 | PrimitiveIr::I32 | PrimitiveIr::U32 | PrimitiveIr::Bool,
+        ) => {}
 
-        Type::Vector(Vector {
-            primitive: Primitive::F32 | Primitive::I32 | Primitive::U32 | Primitive::Bool,
-            length: Length::Two | Length::Three | Length::Four,
+        TypeIr::Vector(VectorIr {
+            primitive: PrimitiveIr::F32 | PrimitiveIr::I32 | PrimitiveIr::U32 | PrimitiveIr::Bool,
+            length: LengthIr::Two | LengthIr::Three | LengthIr::Four,
         }) => {}
 
-        Type::Struct(ty) => {
+        TypeIr::Struct(ty) => {
             f.write_str("struct type");
             f.write_i128(ty_idx as i128);
             f.write_str(" {\n");
@@ -68,31 +71,31 @@ const fn fmt_type_decl(
     }
 }
 
-const fn fmt_type_name(f: &mut Formatter, ty: &'static Type, shader: &'static LinkedShader) {
+const fn fmt_type_name(f: &mut Formatter, ty: &'static TypeIr, shader: &'static LinkedShaderIr) {
     match ty {
-        Type::Primitive(Primitive::F32) => f.write_str("f32"),
-        Type::Primitive(Primitive::I32) => f.write_str("i32"),
-        Type::Primitive(Primitive::U32) => f.write_str("u32"),
-        Type::Primitive(Primitive::Bool) => f.write_str("bool"),
+        TypeIr::Primitive(PrimitiveIr::F32) => f.write_str("f32"),
+        TypeIr::Primitive(PrimitiveIr::I32) => f.write_str("i32"),
+        TypeIr::Primitive(PrimitiveIr::U32) => f.write_str("u32"),
+        TypeIr::Primitive(PrimitiveIr::Bool) => f.write_str("bool"),
 
-        Type::Vector(Vector { length, primitive }) => {
+        TypeIr::Vector(VectorIr { length, primitive }) => {
             f.write_str("vec");
 
             match length {
-                Length::Two => f.write_str("2"),
-                Length::Three => f.write_str("3"),
-                Length::Four => f.write_str("4"),
+                LengthIr::Two => f.write_str("2"),
+                LengthIr::Three => f.write_str("3"),
+                LengthIr::Four => f.write_str("4"),
             }
 
             match primitive {
-                Primitive::F32 => f.write_str("f"),
-                Primitive::I32 => f.write_str("i"),
-                Primitive::U32 => f.write_str("u"),
-                Primitive::Bool => f.write_str("b"),
+                PrimitiveIr::F32 => f.write_str("f"),
+                PrimitiveIr::I32 => f.write_str("i"),
+                PrimitiveIr::U32 => f.write_str("u"),
+                PrimitiveIr::Bool => f.write_str("b"),
             }
         }
 
-        Type::Struct(_) => {
+        TypeIr::Struct(_) => {
             f.write_str("type");
             f.write_i128(shader.type_id(ty) as i128);
         }
@@ -101,11 +104,11 @@ const fn fmt_type_name(f: &mut Formatter, ty: &'static Type, shader: &'static Li
 
 const fn fmt_fn_decl(
     f: &mut Formatter,
-    function: &'static Function,
+    function: &'static FnIr,
     fn_idx: usize,
-    shader: &'static LinkedShader,
+    shader: &'static LinkedShaderIr,
 ) {
-    let Function::UserDefined {
+    let FnIr::UserDefined {
         entry_point_info,
         parameters,
         return_type,
@@ -115,13 +118,13 @@ const fn fmt_fn_decl(
     } = function
     else {
         return match function {
-            Function::BuiltIn(function) => fmt_builtin_fn_decl(f, function),
-            Function::UserDefined { .. } => panic!(),
+            FnIr::BuiltIn(function) => fmt_builtin_fn_decl(f, function),
+            FnIr::UserDefined { .. } => panic!(),
         };
     };
 
     match entry_point_info {
-        Some(EntryPointInfo::Vertex(VertexFunctionInfo {
+        Some(EntryPointInfoIr::Vertex(VertexFunctionInfoIr {
             input_attrs: _,
             output_attrs,
         })) => {
@@ -148,7 +151,7 @@ const fn fmt_fn_decl(
             f.write_str("@vertex\n");
         }
 
-        Some(EntryPointInfo::Fragment(_)) => f.write_str("@fragment\n"),
+        Some(EntryPointInfoIr::Fragment(_)) => f.write_str("@fragment\n"),
 
         None => {}
     }
@@ -158,7 +161,7 @@ const fn fmt_fn_decl(
     f.write_str("(");
 
     match entry_point_info {
-        Some(EntryPointInfo::Vertex(VertexFunctionInfo {
+        Some(EntryPointInfoIr::Vertex(VertexFunctionInfoIr {
             input_attrs,
             output_attrs: _,
         })) => {
@@ -183,7 +186,7 @@ const fn fmt_fn_decl(
             f.write_str("_output");
         }
 
-        Some(EntryPointInfo::Fragment(FragmentFunctionInfo { input_attrs })) => {
+        Some(EntryPointInfoIr::Fragment(FragmentFunctionInfoIr { input_attrs })) => {
             f.write_str("@builtin(position) position: vec4f");
 
             let mut attr_idx = 0;
@@ -245,41 +248,41 @@ const fn fmt_fn_decl(
     f.write_str("}\n\n");
 }
 
-const fn fmt_builtin_fn_decl(_f: &mut Formatter, function: &'static BuiltInFunction) {
+const fn fmt_builtin_fn_decl(_f: &mut Formatter, function: &'static BuiltInFnIr) {
     match function {
-        BuiltInFunction::Neg(_) => {}
-        BuiltInFunction::Not(_) => {}
+        BuiltInFnIr::Neg(_) => {}
+        BuiltInFnIr::Not(_) => {}
 
-        BuiltInFunction::Add(_, _) => {}
-        BuiltInFunction::Sub(_, _) => {}
-        BuiltInFunction::Mul(_, _) => {}
-        BuiltInFunction::Div(_, _) => {}
-        BuiltInFunction::Rem(_, _) => {}
-        BuiltInFunction::Shl(_, _) => {}
-        BuiltInFunction::Shr(_, _) => {}
-        BuiltInFunction::BitAnd(_, _) => {}
-        BuiltInFunction::BitOr(_, _) => {}
-        BuiltInFunction::BitXor(_, _) => {}
+        BuiltInFnIr::Add(_, _) => {}
+        BuiltInFnIr::Sub(_, _) => {}
+        BuiltInFnIr::Mul(_, _) => {}
+        BuiltInFnIr::Div(_, _) => {}
+        BuiltInFnIr::Rem(_, _) => {}
+        BuiltInFnIr::Shl(_, _) => {}
+        BuiltInFnIr::Shr(_, _) => {}
+        BuiltInFnIr::BitAnd(_, _) => {}
+        BuiltInFnIr::BitOr(_, _) => {}
+        BuiltInFnIr::BitXor(_, _) => {}
 
-        BuiltInFunction::Eq(_) => {}
-        BuiltInFunction::Ne(_) => {}
-        BuiltInFunction::Lt(_) => {}
-        BuiltInFunction::Gt(_) => {}
-        BuiltInFunction::Le(_) => {}
-        BuiltInFunction::Ge(_) => {}
+        BuiltInFnIr::Eq(_) => {}
+        BuiltInFnIr::Ne(_) => {}
+        BuiltInFnIr::Lt(_) => {}
+        BuiltInFnIr::Gt(_) => {}
+        BuiltInFnIr::Le(_) => {}
+        BuiltInFnIr::Ge(_) => {}
 
-        BuiltInFunction::And => {}
-        BuiltInFunction::Or => {}
+        BuiltInFnIr::And => {}
+        BuiltInFnIr::Or => {}
     }
 }
 
 const fn fmt_stmt(
     f: &mut Formatter,
-    stmt: &'static Stmt,
-    expr_bank: &'static [Expr],
-    stmt_bank: &'static [Stmt],
+    stmt: &'static StmtIr,
+    expr_bank: &'static [ExprIr],
+    stmt_bank: &'static [StmtIr],
     tab_lvl: usize,
-    shader: &'static LinkedShader,
+    shader: &'static LinkedShaderIr,
 ) {
     let mut i = 0;
     while i < tab_lvl {
@@ -288,7 +291,7 @@ const fn fmt_stmt(
     }
 
     match stmt {
-        Stmt::VariableDecl(Variable { id, ty }) => {
+        StmtIr::VariableDecl(VariableIr { id, ty }) => {
             f.write_str("var var");
             f.write_i128(*id as i128);
             f.write_str(": ");
@@ -296,14 +299,14 @@ const fn fmt_stmt(
             f.write_str(";\n");
         }
 
-        Stmt::Assignment(left, right) => {
+        StmtIr::Assignment(left, right) => {
             fmt_place(f, left, shader);
             f.write_str(" = ");
             fmt_expr(f, right, expr_bank, stmt_bank, shader);
             f.write_str(";\n");
         }
 
-        Stmt::Return(expr) => {
+        StmtIr::Return(expr) => {
             f.write_str("return");
 
             if let Some(expr) = expr {
@@ -318,37 +321,37 @@ const fn fmt_stmt(
 
 const fn fmt_expr(
     f: &mut Formatter,
-    expr: &'static Expr,
-    expr_bank: &'static [Expr],
-    stmt_bank: &'static [Stmt],
-    shader: &'static LinkedShader,
+    expr: &'static ExprIr,
+    expr_bank: &'static [ExprIr],
+    stmt_bank: &'static [StmtIr],
+    shader: &'static LinkedShaderIr,
 ) {
     match expr {
-        Expr::Literal(Literal::F32(value)) => {
+        ExprIr::Literal(LiteralIr::F32(value)) => {
             f.write_str("bitcast<f32>(0x");
             f.write_u32_hex(value.to_bits());
             f.write_str(">");
         }
-        Expr::Literal(Literal::I32(value)) => {
+        ExprIr::Literal(LiteralIr::I32(value)) => {
             f.write_str("bitcast<i32>(0x");
             f.write_u32_hex(value.cast_unsigned());
             f.write_str(">");
         }
-        Expr::Literal(Literal::U32(value)) => {
+        ExprIr::Literal(LiteralIr::U32(value)) => {
             f.write_str("bitcast<u32>(0x");
             f.write_u32_hex(*value);
             f.write_str(">");
         }
-        Expr::Literal(Literal::Bool(false)) => f.write_str("false"),
-        Expr::Literal(Literal::Bool(true)) => f.write_str("true"),
+        ExprIr::Literal(LiteralIr::Bool(false)) => f.write_str("false"),
+        ExprIr::Literal(LiteralIr::Bool(true)) => f.write_str("true"),
 
-        Expr::Variable(Variable { id, ty: _ }) => {
+        ExprIr::Variable(VariableIr { id, ty: _ }) => {
             f.write_str("var");
             f.write_i128(*id as i128);
         }
 
-        Expr::FunctionCall { function, args } => match function {
-            Function::UserDefined { .. } => {
+        ExprIr::FunctionCall { function, args } => match function {
+            FnIr::UserDefined { .. } => {
                 f.write_str("fn");
                 f.write_i128(shader.fn_id(function) as i128);
                 f.write_str("(");
@@ -367,136 +370,136 @@ const fn fmt_expr(
                 f.write_str(")");
             }
 
-            Function::BuiltIn(BuiltInFunction::Neg(_)) => {
+            FnIr::BuiltIn(BuiltInFnIr::Neg(_)) => {
                 f.write_str("-(");
                 fmt_expr(f, &expr_bank[args[0].0], expr_bank, stmt_bank, shader);
                 f.write_str(")");
             }
-            Function::BuiltIn(BuiltInFunction::Not(_)) => {
+            FnIr::BuiltIn(BuiltInFnIr::Not(_)) => {
                 f.write_str("!(");
                 fmt_expr(f, &expr_bank[args[0].0], expr_bank, stmt_bank, shader);
                 f.write_str(")");
             }
-            Function::BuiltIn(BuiltInFunction::Add(_, _)) => {
+            FnIr::BuiltIn(BuiltInFnIr::Add(_, _)) => {
                 f.write_str("(");
                 fmt_expr(f, &expr_bank[args[0].0], expr_bank, stmt_bank, shader);
                 f.write_str(") + (");
                 fmt_expr(f, &expr_bank[args[1].0], expr_bank, stmt_bank, shader);
                 f.write_str(")");
             }
-            Function::BuiltIn(BuiltInFunction::Sub(_, _)) => {
+            FnIr::BuiltIn(BuiltInFnIr::Sub(_, _)) => {
                 f.write_str("(");
                 fmt_expr(f, &expr_bank[args[0].0], expr_bank, stmt_bank, shader);
                 f.write_str(") - (");
                 fmt_expr(f, &expr_bank[args[1].0], expr_bank, stmt_bank, shader);
                 f.write_str(")");
             }
-            Function::BuiltIn(BuiltInFunction::Mul(_, _)) => {
+            FnIr::BuiltIn(BuiltInFnIr::Mul(_, _)) => {
                 f.write_str("(");
                 fmt_expr(f, &expr_bank[args[0].0], expr_bank, stmt_bank, shader);
                 f.write_str(") * (");
                 fmt_expr(f, &expr_bank[args[1].0], expr_bank, stmt_bank, shader);
                 f.write_str(")");
             }
-            Function::BuiltIn(BuiltInFunction::Div(_, _)) => {
+            FnIr::BuiltIn(BuiltInFnIr::Div(_, _)) => {
                 f.write_str("(");
                 fmt_expr(f, &expr_bank[args[0].0], expr_bank, stmt_bank, shader);
                 f.write_str(") / (");
                 fmt_expr(f, &expr_bank[args[1].0], expr_bank, stmt_bank, shader);
                 f.write_str(")");
             }
-            Function::BuiltIn(BuiltInFunction::Rem(_, _)) => {
+            FnIr::BuiltIn(BuiltInFnIr::Rem(_, _)) => {
                 f.write_str("(");
                 fmt_expr(f, &expr_bank[args[0].0], expr_bank, stmt_bank, shader);
                 f.write_str(") % (");
                 fmt_expr(f, &expr_bank[args[1].0], expr_bank, stmt_bank, shader);
                 f.write_str(")");
             }
-            Function::BuiltIn(BuiltInFunction::Shl(_, _)) => {
+            FnIr::BuiltIn(BuiltInFnIr::Shl(_, _)) => {
                 f.write_str("(");
                 fmt_expr(f, &expr_bank[args[0].0], expr_bank, stmt_bank, shader);
                 f.write_str(") << (");
                 fmt_expr(f, &expr_bank[args[1].0], expr_bank, stmt_bank, shader);
                 f.write_str(")");
             }
-            Function::BuiltIn(BuiltInFunction::Shr(_, _)) => {
+            FnIr::BuiltIn(BuiltInFnIr::Shr(_, _)) => {
                 f.write_str("(");
                 fmt_expr(f, &expr_bank[args[0].0], expr_bank, stmt_bank, shader);
                 f.write_str(") >> (");
                 fmt_expr(f, &expr_bank[args[1].0], expr_bank, stmt_bank, shader);
                 f.write_str(")");
             }
-            Function::BuiltIn(BuiltInFunction::BitAnd(_, _)) => {
+            FnIr::BuiltIn(BuiltInFnIr::BitAnd(_, _)) => {
                 f.write_str("(");
                 fmt_expr(f, &expr_bank[args[0].0], expr_bank, stmt_bank, shader);
                 f.write_str(") & (");
                 fmt_expr(f, &expr_bank[args[1].0], expr_bank, stmt_bank, shader);
                 f.write_str(")");
             }
-            Function::BuiltIn(BuiltInFunction::BitOr(_, _)) => {
+            FnIr::BuiltIn(BuiltInFnIr::BitOr(_, _)) => {
                 f.write_str("(");
                 fmt_expr(f, &expr_bank[args[0].0], expr_bank, stmt_bank, shader);
                 f.write_str(") | (");
                 fmt_expr(f, &expr_bank[args[1].0], expr_bank, stmt_bank, shader);
                 f.write_str(")");
             }
-            Function::BuiltIn(BuiltInFunction::BitXor(_, _)) => {
+            FnIr::BuiltIn(BuiltInFnIr::BitXor(_, _)) => {
                 f.write_str("(");
                 fmt_expr(f, &expr_bank[args[0].0], expr_bank, stmt_bank, shader);
                 f.write_str(") ^ (");
                 fmt_expr(f, &expr_bank[args[1].0], expr_bank, stmt_bank, shader);
                 f.write_str(")");
             }
-            Function::BuiltIn(BuiltInFunction::Eq(_)) => {
+            FnIr::BuiltIn(BuiltInFnIr::Eq(_)) => {
                 f.write_str("(");
                 fmt_expr(f, &expr_bank[args[0].0], expr_bank, stmt_bank, shader);
                 f.write_str(") == (");
                 fmt_expr(f, &expr_bank[args[1].0], expr_bank, stmt_bank, shader);
                 f.write_str(")");
             }
-            Function::BuiltIn(BuiltInFunction::Ne(_)) => {
+            FnIr::BuiltIn(BuiltInFnIr::Ne(_)) => {
                 f.write_str("(");
                 fmt_expr(f, &expr_bank[args[0].0], expr_bank, stmt_bank, shader);
                 f.write_str(") != (");
                 fmt_expr(f, &expr_bank[args[1].0], expr_bank, stmt_bank, shader);
                 f.write_str(")");
             }
-            Function::BuiltIn(BuiltInFunction::Lt(_)) => {
+            FnIr::BuiltIn(BuiltInFnIr::Lt(_)) => {
                 f.write_str("(");
                 fmt_expr(f, &expr_bank[args[0].0], expr_bank, stmt_bank, shader);
                 f.write_str(") < (");
                 fmt_expr(f, &expr_bank[args[1].0], expr_bank, stmt_bank, shader);
                 f.write_str(")");
             }
-            Function::BuiltIn(BuiltInFunction::Gt(_)) => {
+            FnIr::BuiltIn(BuiltInFnIr::Gt(_)) => {
                 f.write_str("(");
                 fmt_expr(f, &expr_bank[args[0].0], expr_bank, stmt_bank, shader);
                 f.write_str(") > (");
                 fmt_expr(f, &expr_bank[args[1].0], expr_bank, stmt_bank, shader);
                 f.write_str(")");
             }
-            Function::BuiltIn(BuiltInFunction::Le(_)) => {
+            FnIr::BuiltIn(BuiltInFnIr::Le(_)) => {
                 f.write_str("(");
                 fmt_expr(f, &expr_bank[args[0].0], expr_bank, stmt_bank, shader);
                 f.write_str(") <= (");
                 fmt_expr(f, &expr_bank[args[1].0], expr_bank, stmt_bank, shader);
                 f.write_str(")");
             }
-            Function::BuiltIn(BuiltInFunction::Ge(_)) => {
+            FnIr::BuiltIn(BuiltInFnIr::Ge(_)) => {
                 f.write_str("(");
                 fmt_expr(f, &expr_bank[args[0].0], expr_bank, stmt_bank, shader);
                 f.write_str(") >= (");
                 fmt_expr(f, &expr_bank[args[1].0], expr_bank, stmt_bank, shader);
                 f.write_str(")");
             }
-            Function::BuiltIn(BuiltInFunction::And) => {
+            FnIr::BuiltIn(BuiltInFnIr::And) => {
                 f.write_str("(");
                 fmt_expr(f, &expr_bank[args[0].0], expr_bank, stmt_bank, shader);
                 f.write_str(") && (");
                 fmt_expr(f, &expr_bank[args[1].0], expr_bank, stmt_bank, shader);
                 f.write_str(")");
             }
-            Function::BuiltIn(BuiltInFunction::Or) => {
+            FnIr::BuiltIn(BuiltInFnIr::Or) => {
                 f.write_str("(");
                 fmt_expr(f, &expr_bank[args[0].0], expr_bank, stmt_bank, shader);
                 f.write_str(") || (");
@@ -507,9 +510,9 @@ const fn fmt_expr(
     }
 }
 
-const fn fmt_place(f: &mut Formatter, place: &'static Place, _shader: &'static LinkedShader) {
+const fn fmt_place(f: &mut Formatter, place: &'static PlaceIr, _shader: &'static LinkedShaderIr) {
     match place {
-        Place::Variable(Variable { id, ty: _ }) => {
+        PlaceIr::Variable(VariableIr { id, ty: _ }) => {
             f.write_str("var");
             f.write_i128(*id as i128);
         }

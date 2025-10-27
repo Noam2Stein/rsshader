@@ -81,13 +81,13 @@ pub fn shader_item(item: ItemStruct, errors: &mut Vec<Error>, labels: &mut Label
                 let marker = if labels.find("fragment").is_some()
                     && field_labels.find("position").is_some()
                 {
-                    quote! { Some(rsshader::ir::FieldMarker::Position) }
+                    quote! { Some(rsshader::ir::FieldMarkerIr::Position) }
                 } else {
                     quote! { None }
                 };
 
                 quote! {
-                    rsshader::ir::Field {
+                    rsshader::ir::FieldIr {
                         ty: &<#ty as rsshader::reflection::ShaderType>::IR,
                         rust_offset: core::mem::offset_of!(Self, #ident),
                         marker: #marker,
@@ -112,7 +112,7 @@ pub fn shader_item(item: ItemStruct, errors: &mut Vec<Error>, labels: &mut Label
         #syn_item
 
         impl #impl_generics rsshader::reflection::ShaderType for #ident #impl_ty_params #where_clause {
-            const IR: rsshader::ir::Type = rsshader::ir::Type::Struct(rsshader::ir::Struct {
+            const IR: rsshader::ir::TypeIr = rsshader::ir::TypeIr::Struct(rsshader::ir::StructIr {
                 fields: &[#(#field_irs),*],
             });
         }
