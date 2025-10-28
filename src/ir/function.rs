@@ -5,7 +5,7 @@ use crate::ir::TypeIr;
 #[derive(Debug, Clone, Copy, ConstEq)]
 pub enum FnIr {
     UserDefined {
-        entry_point_info: Option<EntryPointInfoIr>,
+        entry_point_kind: Option<EntryPointKind>,
         parameters: &'static [VariableIr],
         return_type: Option<&'static TypeIr>,
         stmts: &'static [usize],
@@ -40,23 +40,14 @@ pub enum BuiltInFnIr {
 
     And,
     Or,
+
+    StructConstructor { ty: &'static TypeIr },
 }
 
 #[derive(Debug, Clone, Copy, ConstEq)]
-pub enum EntryPointInfoIr {
-    Vertex(VertexFunctionInfoIr),
-    Fragment(FragmentFunctionInfoIr),
-}
-
-#[derive(Debug, Clone, Copy, ConstEq)]
-pub struct VertexFunctionInfoIr {
-    pub input_attrs: &'static [&'static TypeIr],
-    pub output_attrs: &'static [&'static TypeIr],
-}
-
-#[derive(Debug, Clone, Copy, ConstEq)]
-pub struct FragmentFunctionInfoIr {
-    pub input_attrs: &'static [&'static TypeIr],
+pub enum EntryPointKind {
+    Vertex,
+    Fragment,
 }
 
 #[derive(Debug, Clone, Copy, ConstEq)]

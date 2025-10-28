@@ -1,8 +1,8 @@
 use rsshader_macros::ConstEq;
 
 use crate::ir::{
-    BuiltInFnIr, EntryPointInfoIr, ExprIr, FnIr, LiteralIr, PlaceIr, PrimitiveIr, StmtIr, StructIr,
-    TypeIr, VariableIr, VectorIr,
+    BuiltInFnIr, ExprIr, FnIr, LiteralIr, PlaceIr, PrimitiveIr, StmtIr, StructIr, TypeIr,
+    VariableIr, VectorIr,
 };
 
 #[derive(Debug, Clone, Copy, ConstEq)]
@@ -99,37 +99,13 @@ impl<const TYPE_CAP: usize, const FN_CAP: usize> LinkedShaderIrBuffer<TYPE_CAP, 
 
         match function {
             FnIr::UserDefined {
-                entry_point_info,
+                entry_point_kind: _,
                 parameters,
                 return_type,
                 stmts: _,
                 expr_bank,
                 stmt_bank,
             } => {
-                match entry_point_info {
-                    Some(EntryPointInfoIr::Vertex(info)) => {
-                        let mut i = 0;
-                        while i < info.input_attrs.len() {
-                            self.link_type(info.input_attrs[i]);
-                            i += 1;
-                        }
-
-                        i = 0;
-                        while i < info.output_attrs.len() {
-                            self.link_type(info.output_attrs[i]);
-                            i += 1;
-                        }
-                    }
-                    Some(EntryPointInfoIr::Fragment(info)) => {
-                        let mut i = 0;
-                        while i < info.input_attrs.len() {
-                            self.link_type(info.input_attrs[i]);
-                            i += 1;
-                        }
-                    }
-                    None => {}
-                };
-
                 let mut i = 0;
                 while i < parameters.len() {
                     self.link_type(parameters[i].ty);
@@ -209,6 +185,8 @@ impl<const TYPE_CAP: usize, const FN_CAP: usize> LinkedShaderIrBuffer<TYPE_CAP, 
             BuiltInFnIr::Ge(a) => self.link_type(a),
             BuiltInFnIr::And => self.link_type(&TypeIr::Primitive(PrimitiveIr::Bool)),
             BuiltInFnIr::Or => self.link_type(&TypeIr::Primitive(PrimitiveIr::Bool)),
+
+            BuiltInFnIr::StructConstructor { ty } => self.link_type(ty),
         }
     }
 
@@ -254,6 +232,10 @@ impl<const TYPE_CAP: usize, const FN_CAP: usize> LinkedShaderIrBuffer<TYPE_CAP, 
                     i += 1;
                 }
             }
+
+            TypeIr::VertexAttributes(ty)
+            | TypeIr::FragmentAttributes(ty)
+            | TypeIr::RenderOutputAttributes(ty) => self.link_type(ty),
         }
     }
 

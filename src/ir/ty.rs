@@ -5,6 +5,9 @@ pub enum TypeIr {
     Primitive(PrimitiveIr),
     Vector(VectorIr),
     Struct(StructIr),
+    VertexAttributes(&'static TypeIr),
+    FragmentAttributes(&'static TypeIr),
+    RenderOutputAttributes(&'static TypeIr),
 }
 
 #[derive(Debug, Clone, Copy, ConstEq)]
@@ -37,10 +40,10 @@ pub struct StructIr {
 pub struct FieldIr {
     pub ty: &'static TypeIr,
     pub rust_offset: usize,
-    pub marker: Option<FieldMarkerIr>,
+    pub metadata: Option<FieldMetadataIr>,
 }
 
 #[derive(Debug, Clone, Copy, ConstEq)]
-pub enum FieldMarkerIr {
+pub enum FieldMetadataIr {
     Position,
 }

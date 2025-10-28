@@ -1,8 +1,7 @@
 use crate::{
     ir::{
-        BuiltInFnIr, EntryPointInfoIr, ExprIr, FnIr, FragmentFunctionInfoIr, LengthIr,
-        LinkedShaderIr, LiteralIr, PlaceIr, PrimitiveIr, StmtIr, TypeIr, VariableIr, VectorIr,
-        VertexFunctionInfoIr,
+        BuiltInFnIr, EntryPointKind, ExprIr, FieldMetadataIr, FnIr, LengthIr, LinkedShaderIr,
+        LiteralIr, PlaceIr, PrimitiveIr, StmtIr, TypeIr, VariableIr, VectorIr,
     },
     lang::Formatter,
 };
@@ -68,6 +67,69 @@ const fn fmt_type_decl(
 
             f.write_str("}\n\n");
         }
+
+        TypeIr::VertexAttributes(ty)
+        | TypeIr::FragmentAttributes(ty)
+        | TypeIr::RenderOutputAttributes(ty) => {
+            const fn fmt_attribute_fields(
+                f: &mut Formatter,
+                ty: &'static TypeIr,
+                attr_idx: &mut usize,
+                shader: &'static LinkedShaderIr,
+            ) {
+                match ty {
+                    TypeIr::Primitive(_) | TypeIr::Vector(_) => {
+                        f.write_str("\t@location(");
+                        f.write_i128(*attr_idx as i128);
+                        f.write_str(")\n");
+                        f.write_str("\tattr");
+                        f.write_i128(*attr_idx as i128);
+                        f.write_str(": ");
+                        fmt_type_name(f, ty, shader);
+                        f.write_str(",\n");
+
+                        *attr_idx += 1;
+                    }
+
+                    TypeIr::Struct(ty) => {
+                        let mut field_idx = 0;
+                        while field_idx < ty.fields.len() {
+                            let field = &ty.fields[field_idx];
+
+                            match field.metadata {
+                                None => fmt_attribute_fields(f, field.ty, attr_idx, shader),
+
+                                Some(FieldMetadataIr::Position) => {
+                                    f.write_str("\t@builtin(position)\n");
+                                    f.write_str("\tattr");
+                                    f.write_i128(*attr_idx as i128);
+                                    f.write_str(": vec4f,\n");
+
+                                    *attr_idx += 1;
+                                }
+                            }
+
+                            field_idx += 1;
+                        }
+                    }
+
+                    TypeIr::VertexAttributes(_)
+                    | TypeIr::FragmentAttributes(_)
+                    | TypeIr::RenderOutputAttributes(_) => {
+                        panic!("cannot have attributes inside attributes")
+                    }
+                }
+            }
+
+            f.write_str("struct type");
+            f.write_i128(ty_idx as i128);
+            f.write_str(" {\n");
+
+            let mut attr_idx = 0;
+            fmt_attribute_fields(f, ty, &mut attr_idx, shader);
+
+            f.write_str("}\n\n");
+        }
     }
 }
 
@@ -95,7 +157,10 @@ const fn fmt_type_name(f: &mut Formatter, ty: &'static TypeIr, shader: &'static 
             }
         }
 
-        TypeIr::Struct(_) => {
+        TypeIr::Struct(_)
+        | TypeIr::VertexAttributes(_)
+        | TypeIr::FragmentAttributes(_)
+        | TypeIr::RenderOutputAttributes(_) => {
             f.write_str("type");
             f.write_i128(shader.type_id(ty) as i128);
         }
@@ -109,7 +174,7 @@ const fn fmt_fn_decl(
     shader: &'static LinkedShaderIr,
 ) {
     let FnIr::UserDefined {
-        entry_point_info,
+        entry_point_kind: entry_point_info,
         parameters,
         return_type,
         stmts,
@@ -124,114 +189,36 @@ const fn fmt_fn_decl(
     };
 
     match entry_point_info {
-        Some(EntryPointInfoIr::Vertex(VertexFunctionInfoIr {
-            input_attrs: _,
-            output_attrs,
-        })) => {
-            f.write_str("struct fn");
-            f.write_i128(fn_idx as i128);
-            f.write_str("_output {\n");
-            f.write_str("\t@builtin(position) position: vec4f,\n");
-
-            let mut attr_idx = 0;
-            while attr_idx < output_attrs.len() {
-                f.write_str("\tlocation(");
-                f.write_i128(attr_idx as i128);
-                f.write_str(")\n");
-                f.write_str("\tattr");
-                f.write_i128(attr_idx as i128);
-                f.write_str(": ");
-                fmt_type_name(f, output_attrs[attr_idx], shader);
-                f.write_str(",\n");
-
-                attr_idx += 1;
-            }
-
-            f.write_str("}\n\n");
-            f.write_str("@vertex\n");
-        }
-
-        Some(EntryPointInfoIr::Fragment(_)) => f.write_str("@fragment\n"),
-
         None => {}
+        Some(EntryPointKind::Vertex) => f.write_str("@vertex\n"),
+        Some(EntryPointKind::Fragment) => f.write_str("@fragment\n"),
     }
 
     f.write_str("fn fn");
     f.write_i128(fn_idx as i128);
     f.write_str("(");
 
-    match entry_point_info {
-        Some(EntryPointInfoIr::Vertex(VertexFunctionInfoIr {
-            input_attrs,
-            output_attrs: _,
-        })) => {
-            let mut attr_idx = 0;
-            while attr_idx < input_attrs.len() {
-                if attr_idx > 0 {
-                    f.write_str(", ");
-                }
-
-                f.write_str("@location(");
-                f.write_i128(attr_idx as i128);
-                f.write_str(") attr");
-                f.write_i128(attr_idx as i128);
-                f.write_str(": ");
-                fmt_type_name(f, input_attrs[attr_idx], shader);
-
-                attr_idx += 1;
-            }
-
-            f.write_str(") -> fn");
-            f.write_i128(fn_idx as i128);
-            f.write_str("_output");
+    let mut param_idx = 0;
+    while param_idx < parameters.len() {
+        if param_idx > 0 {
+            f.write_str(", ");
         }
 
-        Some(EntryPointInfoIr::Fragment(FragmentFunctionInfoIr { input_attrs })) => {
-            f.write_str("@builtin(position) position: vec4f");
+        let param = parameters[param_idx];
 
-            let mut attr_idx = 0;
-            while attr_idx < input_attrs.len() {
-                f.write_str(", ");
+        f.write_str("var");
+        f.write_i128(param.id as i128);
+        f.write_str(": ");
+        fmt_type_name(f, param.ty, shader);
 
-                let attr = input_attrs[attr_idx];
+        param_idx += 1;
+    }
 
-                f.write_str("@location(");
-                f.write_i128(attr_idx as i128);
-                f.write_str(") attr");
-                f.write_i128(attr_idx as i128);
-                f.write_str(": ");
-                fmt_type_name(f, attr, shader);
+    f.write_str(")");
 
-                attr_idx += 1;
-            }
-
-            f.write_str(") -> @location(0) vec4f");
-        }
-
-        None => {
-            let mut param_idx = 0;
-            while param_idx < parameters.len() {
-                if param_idx > 0 {
-                    f.write_str(", ");
-                }
-
-                let param = parameters[param_idx];
-
-                f.write_str("var");
-                f.write_i128(param.id as i128);
-                f.write_str(": ");
-                fmt_type_name(f, param.ty, shader);
-
-                param_idx += 1;
-            }
-
-            f.write_str(")");
-
-            if let Some(return_type) = return_type {
-                f.write_str(" -> ");
-                fmt_type_name(f, return_type, shader);
-            }
-        }
+    if let Some(return_type) = return_type {
+        f.write_str(" -> ");
+        fmt_type_name(f, return_type, shader);
     }
 
     f.write_str(" {\n");
@@ -273,6 +260,8 @@ const fn fmt_builtin_fn_decl(_f: &mut Formatter, function: &'static BuiltInFnIr)
 
         BuiltInFnIr::And => {}
         BuiltInFnIr::Or => {}
+
+        BuiltInFnIr::StructConstructor { .. } => {}
     }
 }
 
@@ -504,6 +493,25 @@ const fn fmt_expr(
                 fmt_expr(f, &expr_bank[args[0].0], expr_bank, stmt_bank, shader);
                 f.write_str(") || (");
                 fmt_expr(f, &expr_bank[args[1].0], expr_bank, stmt_bank, shader);
+                f.write_str(")");
+            }
+
+            FnIr::BuiltIn(BuiltInFnIr::StructConstructor { ty }) => {
+                f.write_str("type");
+                f.write_i128(shader.type_id(ty) as i128);
+                f.write_str("(");
+
+                let mut arg_idx = 0;
+                while arg_idx < args.len() {
+                    if arg_idx > 0 {
+                        f.write_str(", ");
+                    }
+
+                    fmt_expr(f, &expr_bank[args[arg_idx].0], expr_bank, stmt_bank, shader);
+
+                    arg_idx += 1;
+                }
+
                 f.write_str(")");
             }
         },
