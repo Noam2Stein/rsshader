@@ -14,31 +14,76 @@ pub enum FnIr {
 
 #[derive(Debug, Clone, Copy, ConstEq)]
 pub enum BuiltInFnIr {
-    Neg(&'static TypeIr),
-    Not(&'static TypeIr),
+    Neg {
+        ty: &'static TypeIr,
+    },
+    Not {
+        ty: &'static TypeIr,
+    },
 
-    Add(&'static TypeIr, &'static TypeIr),
-    Sub(&'static TypeIr, &'static TypeIr),
-    Mul(&'static TypeIr, &'static TypeIr),
-    Div(&'static TypeIr, &'static TypeIr),
-    Rem(&'static TypeIr, &'static TypeIr),
-    Shl(&'static TypeIr, &'static TypeIr),
-    Shr(&'static TypeIr, &'static TypeIr),
-    BitAnd(&'static TypeIr, &'static TypeIr),
-    BitOr(&'static TypeIr, &'static TypeIr),
-    BitXor(&'static TypeIr, &'static TypeIr),
+    Add {
+        left: &'static TypeIr,
+        right: &'static TypeIr,
+    },
+    Sub {
+        left: &'static TypeIr,
+        right: &'static TypeIr,
+    },
+    Mul {
+        left: &'static TypeIr,
+        right: &'static TypeIr,
+    },
+    Div {
+        left: &'static TypeIr,
+        right: &'static TypeIr,
+    },
+    Rem {
+        left: &'static TypeIr,
+        right: &'static TypeIr,
+    },
+    Shl {
+        left: &'static TypeIr,
+        right: &'static TypeIr,
+    },
+    Shr {
+        left: &'static TypeIr,
+        right: &'static TypeIr,
+    },
+    BitAnd {
+        left: &'static TypeIr,
+        right: &'static TypeIr,
+    },
+    BitOr {
+        left: &'static TypeIr,
+        right: &'static TypeIr,
+    },
+    BitXor {
+        left: &'static TypeIr,
+        right: &'static TypeIr,
+    },
 
-    Eq(&'static TypeIr),
-    Ne(&'static TypeIr),
-    Lt(&'static TypeIr),
-    Gt(&'static TypeIr),
-    Le(&'static TypeIr),
-    Ge(&'static TypeIr),
+    Eq {
+        ty: &'static TypeIr,
+    },
+    Ne {
+        ty: &'static TypeIr,
+    },
+    Lt {
+        ty: &'static TypeIr,
+    },
+    Le {
+        ty: &'static TypeIr,
+    },
+    Ge {
+        ty: &'static TypeIr,
+    },
 
     And,
     Or,
 
-    StructConstructor { ty: &'static TypeIr },
+    StructConstructor {
+        ty: &'static TypeIr,
+    },
 }
 
 #[derive(Debug, Clone, Copy, ConstEq)]

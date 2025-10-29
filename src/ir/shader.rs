@@ -99,6 +99,9 @@ pub mod linker {
                     output,
                     body,
                 } => {
+                    self.vertex_inputs.link(input);
+                    self.frag_inputs.link(output);
+
                     self.link_attr_iter(input.iter());
                     self.link_attr_iter(output.iter());
                     self.link_body(body);
@@ -108,6 +111,9 @@ pub mod linker {
                     output,
                     body,
                 } => {
+                    self.frag_inputs.link(input);
+                    self.frag_outputs.link(output);
+
                     self.link_attr_iter(input.iter());
                     self.link_attr_iter(output.iter());
                     self.link_body(body);
@@ -226,7 +232,9 @@ pub mod linker {
             }
         }
 
-        const fn link_fn(&mut self, func: &FnIr) {
+        const fn link_fn(&mut self, func: &'static FnIr) {
+            self.fns.link(func);
+
             match func {
                 FnIr::UserDefined {
                     params,
@@ -241,11 +249,74 @@ pub mod linker {
 
                         i += 1;
                     }
+
+                    if let Some(ret_ty) = ret_ty {
+                        self.link_ty(ret_ty);
+                    }
+
+                    self.link_body(body);
                 }
 
-                FnIr::BuiltIn(BuiltInFnIr::Neg(ty)) => self.link_ty(ty),
-                FnIr::BuiltIn(BuiltInFnIr::Not(ty)) => self.link_ty(ty),
-                FnIr::BuiltIn(BuiltInFnIr::Add(ty)) => self.link_ty(ty),
+                FnIr::BuiltIn(BuiltInFnIr::Neg { ty }) => self.link_ty(ty),
+                FnIr::BuiltIn(BuiltInFnIr::Not { ty }) => self.link_ty(ty),
+
+                FnIr::BuiltIn(BuiltInFnIr::Add { left, right }) => {
+                    self.link_ty(left);
+                    self.link_ty(right);
+                }
+                FnIr::BuiltIn(BuiltInFnIr::Sub { left, right }) => {
+                    self.link_ty(left);
+                    self.link_ty(right);
+                }
+                FnIr::BuiltIn(BuiltInFnIr::Mul { left, right }) => {
+                    self.link_ty(left);
+                    self.link_ty(right);
+                }
+                FnIr::BuiltIn(BuiltInFnIr::Div { left, right }) => {
+                    self.link_ty(left);
+                    self.link_ty(right);
+                }
+                FnIr::BuiltIn(BuiltInFnIr::Rem { left, right }) => {
+                    self.link_ty(left);
+                    self.link_ty(right);
+                }
+                FnIr::BuiltIn(BuiltInFnIr::Shl { left, right }) => {
+                    self.link_ty(left);
+                    self.link_ty(right);
+                }
+                FnIr::BuiltIn(BuiltInFnIr::Shr { left, right }) => {
+                    self.link_ty(left);
+                    self.link_ty(right);
+                }
+                FnIr::BuiltIn(BuiltInFnIr::BitAnd { left, right }) => {
+                    self.link_ty(left);
+                    self.link_ty(right);
+                }
+                FnIr::BuiltIn(BuiltInFnIr::BitOr { left, right }) => {
+                    self.link_ty(left);
+                    self.link_ty(right);
+                }
+                FnIr::BuiltIn(BuiltInFnIr::BitXor { left, right }) => {
+                    self.link_ty(left);
+                    self.link_ty(right);
+                }
+
+                FnIr::BuiltIn(BuiltInFnIr::Eq { ty }) => self.link_ty(ty),
+                FnIr::BuiltIn(BuiltInFnIr::Ne { ty }) => self.link_ty(ty),
+                FnIr::BuiltIn(BuiltInFnIr::Lt { ty }) => self.link_ty(ty),
+                FnIr::BuiltIn(BuiltInFnIr::Le { ty }) => self.link_ty(ty),
+                FnIr::BuiltIn(BuiltInFnIr::Ge { ty }) => self.link_ty(ty),
+
+                FnIr::BuiltIn(BuiltInFnIr::And) => {
+                    self.link_ty(&TypeIr::Primitive(PrimitiveIr::Bool))
+                }
+                FnIr::BuiltIn(BuiltInFnIr::Or) => {
+                    self.link_ty(&TypeIr::Primitive(PrimitiveIr::Bool))
+                }
+
+                FnIr::BuiltIn(BuiltInFnIr::StructConstructor { ty }) => {
+                    self.link_ty(ty);
+                }
             }
         }
     }
