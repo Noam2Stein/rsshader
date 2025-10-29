@@ -1,3 +1,5 @@
+#![no_std]
+
 pub mod ir;
 pub mod lang;
 pub mod reflection;
