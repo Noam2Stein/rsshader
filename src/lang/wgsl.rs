@@ -1,7 +1,7 @@
 use crate::{
     ir::{
-        BuiltInFnIr, EntryPointKind, ExprIr, FieldMetadataIr, FnIr, LengthIr, LinkedShaderIr,
-        LiteralIr, PlaceIr, PrimitiveIr, StmtIr, TypeIr, VariableIr, VectorIr,
+        BuiltInFnIr, ExprIr, FnIr, LengthIr, LinkedShaderIr, LiteralIr, PlaceIr, PrimitiveIr,
+        StmtIr, TypeIr, VariableIr, VectorIr, VertexInputIr,
     },
     lang::Formatter,
 };
@@ -9,28 +9,34 @@ use crate::{
 #[macro_export]
 macro_rules! wgsl {
     ($($entry_point:path),* $(,)?) => {
-        $crate::shader!($($entry_point),* => $crate::lang::fmt_wgsl)
+        $crate::shader!($($entry_point),* => $crate::lang::wgsl::fmt)
     };
 }
 
 #[doc(hidden)]
-pub const fn fmt_wgsl(f: &mut Formatter, shader: &'static LinkedShaderIr) {
-    let mut ty_idx = 0;
-    while ty_idx < shader.types.len() {
-        fmt_type_decl(f, &shader.types[ty_idx], ty_idx, shader);
+pub const fn fmt(f: &mut Formatter, shader: &'static LinkedShaderIr) {
+    macro_rules! fmt_all {
+        ($f:path => $values:expr) => {
+            let mut i = 0;
+            while i < $values.len() {
+                $f(f, &$values[i], shader);
 
-        ty_idx += 1;
+                i += 1;
+            }
+        };
     }
 
-    let mut fn_idx = 0;
-    while fn_idx < shader.functions.len() {
-        fmt_fn_decl(f, &shader.functions[fn_idx], fn_idx, shader);
-
-        fn_idx += 1;
-    }
+    fmt_all!(fmt_vertex_input => shader.vertex_inputs);
 }
 
-const fn fmt_type_decl(
+const fn fmt_vertex_input(
+    f: &mut Formatter,
+    vertex_input: &VertexInputIr,
+    shader: &LinkedShaderIr,
+) {
+}
+
+const fn fmt_ty(
     f: &mut Formatter,
     ty: &'static TypeIr,
     ty_idx: usize,
@@ -53,80 +59,15 @@ const fn fmt_type_decl(
 
             let mut field_idx = 0;
             while field_idx < ty.fields.len() {
-                let field = &ty.fields[field_idx];
-
                 f.write_str("\tfield");
-                f.write_i128(field.rust_offset as i128);
+                f.write_i128(field_idx as i128);
                 f.write_str(": ");
 
-                fmt_type_name(f, field.ty, shader);
+                fmt_type_name(f, &ty.fields[field_idx], shader);
                 f.write_str(",\n");
 
                 field_idx += 1;
             }
-
-            f.write_str("}\n\n");
-        }
-
-        TypeIr::VertexAttributes(ty)
-        | TypeIr::FragmentAttributes(ty)
-        | TypeIr::RenderOutputAttributes(ty) => {
-            const fn fmt_attribute_fields(
-                f: &mut Formatter,
-                ty: &'static TypeIr,
-                attr_idx: &mut usize,
-                shader: &'static LinkedShaderIr,
-            ) {
-                match ty {
-                    TypeIr::Primitive(_) | TypeIr::Vector(_) => {
-                        f.write_str("\t@location(");
-                        f.write_i128(*attr_idx as i128);
-                        f.write_str(")\n");
-                        f.write_str("\tattr");
-                        f.write_i128(*attr_idx as i128);
-                        f.write_str(": ");
-                        fmt_type_name(f, ty, shader);
-                        f.write_str(",\n");
-
-                        *attr_idx += 1;
-                    }
-
-                    TypeIr::Struct(ty) => {
-                        let mut field_idx = 0;
-                        while field_idx < ty.fields.len() {
-                            let field = &ty.fields[field_idx];
-
-                            match field.metadata {
-                                None => fmt_attribute_fields(f, field.ty, attr_idx, shader),
-
-                                Some(FieldMetadataIr::Position) => {
-                                    f.write_str("\t@builtin(position)\n");
-                                    f.write_str("\tattr");
-                                    f.write_i128(*attr_idx as i128);
-                                    f.write_str(": vec4f,\n");
-
-                                    *attr_idx += 1;
-                                }
-                            }
-
-                            field_idx += 1;
-                        }
-                    }
-
-                    TypeIr::VertexAttributes(_)
-                    | TypeIr::FragmentAttributes(_)
-                    | TypeIr::RenderOutputAttributes(_) => {
-                        panic!("cannot have attributes inside attributes")
-                    }
-                }
-            }
-
-            f.write_str("struct type");
-            f.write_i128(ty_idx as i128);
-            f.write_str(" {\n");
-
-            let mut attr_idx = 0;
-            fmt_attribute_fields(f, ty, &mut attr_idx, shader);
 
             f.write_str("}\n\n");
         }
@@ -167,7 +108,7 @@ const fn fmt_type_name(f: &mut Formatter, ty: &'static TypeIr, shader: &'static 
     }
 }
 
-const fn fmt_fn_decl(
+const fn fmt_fn(
     f: &mut Formatter,
     function: &'static FnIr,
     fn_idx: usize,
@@ -175,8 +116,8 @@ const fn fmt_fn_decl(
 ) {
     let FnIr::UserDefined {
         entry_point_kind: entry_point_info,
-        parameters,
-        return_type,
+        params: parameters,
+        ret_ty: return_type,
         stmts,
         expr_bank,
         stmt_bank,
@@ -339,7 +280,10 @@ const fn fmt_expr(
             f.write_i128(*id as i128);
         }
 
-        ExprIr::FunctionCall { function, args } => match function {
+        ExprIr::FunctionCall {
+            func: function,
+            args,
+        } => match function {
             FnIr::UserDefined { .. } => {
                 f.write_str("fn");
                 f.write_i128(shader.fn_id(function) as i128);

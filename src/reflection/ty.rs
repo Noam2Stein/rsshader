@@ -1,34 +1,50 @@
-use crate::ir::{PrimitiveIr, TypeIr};
+use crate::ir::{
+    FragInputIr, FragOutputIr, LengthIr, PrimitiveIr, TypeIr, VectorIr, VertexInputIr,
+};
 
-pub trait ShaderType: Copy + 'static + Send + Sync {
+pub trait Ty: Copy + 'static + Send + Sync {
     const IR: TypeIr;
 }
 
-pub trait FragmentType: ShaderType {
-    const __: ();
+pub trait PrimitiveTy: Ty {}
+
+pub trait VectorTy<const N: usize, T: PrimitiveTy>: Ty {}
+
+pub trait VertexInputTy: Ty {
+    const IR: VertexInputIr;
 }
 
-pub trait PrimitiveType: ShaderType {}
+pub trait FragInputTy: Ty {
+    const IR: FragInputIr;
+}
 
-pub trait VectorType<const N: usize, T: PrimitiveType>: ShaderType {}
+pub trait FragOutputTy: Ty {
+    const IR: FragOutputIr;
+}
 
-impl ShaderType for f32 {
+impl PrimitiveTy for f32 {}
+impl Ty for f32 {
     const IR: TypeIr = TypeIr::Primitive(PrimitiveIr::F32);
 }
 
-impl ShaderType for i32 {
+impl PrimitiveTy for i32 {}
+impl Ty for i32 {
     const IR: TypeIr = TypeIr::Primitive(PrimitiveIr::I32);
 }
 
-impl ShaderType for u32 {
+impl PrimitiveTy for u32 {}
+impl Ty for u32 {
     const IR: TypeIr = TypeIr::Primitive(PrimitiveIr::U32);
 }
 
-impl ShaderType for bool {
+impl PrimitiveTy for bool {}
+impl Ty for bool {
     const IR: TypeIr = TypeIr::Primitive(PrimitiveIr::Bool);
 }
 
-impl PrimitiveType for f32 {}
-impl PrimitiveType for i32 {}
-impl PrimitiveType for u32 {}
-impl PrimitiveType for bool {}
+impl<T: VectorTy<4, f32>> FragOutputTy for T {
+    const IR: FragOutputIr = FragOutputIr(&TypeIr::Vector(VectorIr {
+        length: LengthIr::Four,
+        primitive: PrimitiveIr::F32,
+    }));
+}

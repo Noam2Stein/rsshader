@@ -1,5 +1,9 @@
-use crate::ir::FnIr;
+use crate::ir::{EntryPointIr, FnIr};
 
-pub trait ShaderFn {
+pub trait Fn {
     const IR: FnIr;
+}
+
+pub trait EntryPoint: Fn {
+    const IR: EntryPointIr;
 }

@@ -1,6 +1,4 @@
-mod ty;
-pub use ty::*;
-
 mod r#fn;
-#[doc(hidden)]
+mod ty;
 pub use r#fn::*;
+pub use ty::*;

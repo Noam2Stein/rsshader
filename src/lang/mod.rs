@@ -1,8 +1,8 @@
 mod formatter;
 pub use formatter::*;
 
-mod wgsl;
-pub use wgsl::*;
+#[doc(hidden)]
+pub mod wgsl;
 
 #[macro_export]
 macro_rules! shader {

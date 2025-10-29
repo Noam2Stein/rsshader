@@ -1,6 +1,10 @@
-mod function;
+mod bank;
+mod entry_point;
+mod r#fn;
 mod shader;
 mod ty;
-pub use function::*;
+pub use bank::*;
+pub use entry_point::*;
+pub use r#fn::*;
 pub use shader::*;
 pub use ty::*;

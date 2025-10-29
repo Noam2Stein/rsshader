@@ -1,13 +1,12 @@
 use rsshader_macros::ConstEq;
 
+use crate::ir::LinkedShaderIr;
+
 #[derive(Debug, Clone, Copy, ConstEq)]
 pub enum TypeIr {
     Primitive(PrimitiveIr),
     Vector(VectorIr),
     Struct(StructIr),
-    VertexAttributes(&'static TypeIr),
-    FragmentAttributes(&'static TypeIr),
-    RenderOutputAttributes(&'static TypeIr),
 }
 
 #[derive(Debug, Clone, Copy, ConstEq)]
@@ -33,17 +32,18 @@ pub enum LengthIr {
 
 #[derive(Debug, Clone, Copy, ConstEq)]
 pub struct StructIr {
-    pub fields: &'static [FieldIr],
+    pub fields: &'static [&'static TypeIr],
 }
 
-#[derive(Debug, Clone, Copy, ConstEq)]
-pub struct FieldIr {
-    pub ty: &'static TypeIr,
-    pub rust_offset: usize,
-    pub metadata: Option<FieldMetadataIr>,
-}
+impl TypeIr {
+    pub const fn id(&self, shader: &LinkedShaderIr) -> usize {
+        let mut i = 0;
+        loop {
+            if shader.types[i].eq(self) {
+                break i;
+            }
 
-#[derive(Debug, Clone, Copy, ConstEq)]
-pub enum FieldMetadataIr {
-    Position,
+            i += 1;
+        }
+    }
 }

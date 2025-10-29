@@ -1,16 +1,13 @@
 use rsshader_macros::ConstEq;
 
-use crate::ir::TypeIr;
+use crate::ir::{Bank, Id, LinkedShaderIr, TypeIr};
 
 #[derive(Debug, Clone, Copy, ConstEq)]
 pub enum FnIr {
     UserDefined {
-        entry_point_kind: Option<EntryPointKind>,
-        parameters: &'static [VariableIr],
-        return_type: Option<&'static TypeIr>,
-        stmts: &'static [usize],
-        expr_bank: &'static [ExprIr],
-        stmt_bank: &'static [StmtIr],
+        params: &'static [VariableIr],
+        ret_ty: Option<&'static TypeIr>,
+        body: BodyIr,
     },
     BuiltIn(BuiltInFnIr),
 }
@@ -45,9 +42,10 @@ pub enum BuiltInFnIr {
 }
 
 #[derive(Debug, Clone, Copy, ConstEq)]
-pub enum EntryPointKind {
-    Vertex,
-    Fragment,
+pub struct BodyIr {
+    pub stmts: &'static [Id<StmtIr>],
+    pub expr_bank: Bank<ExprIr>,
+    pub stmt_bank: Bank<StmtIr>,
 }
 
 #[derive(Debug, Clone, Copy, ConstEq)]
@@ -69,8 +67,8 @@ pub enum ExprIr {
     Literal(LiteralIr),
     Variable(VariableIr),
     FunctionCall {
-        function: &'static FnIr,
-        args: &'static [ExprIrId],
+        func: &'static FnIr,
+        args: &'static [Id<ExprIr>],
     },
 }
 
@@ -81,16 +79,23 @@ pub enum PlaceIr {
 
 #[derive(Debug, Clone, Copy, ConstEq)]
 pub enum StmtIr {
-    VariableDecl(VariableIr),
-    Assignment(PlaceIr, ExprIr),
-    Return(Option<ExprIr>),
+    VariableDecl { var: VariableIr },
+    Assignment { left: PlaceIr, right: ExprIr },
+    Return { value: Option<ExprIr> },
 }
 
-#[derive(Debug, Clone, Copy, ConstEq)]
-pub struct ExprIrId(pub usize);
+impl FnIr {
+    pub const fn id(&self, shader: &LinkedShaderIr) -> usize {
+        let mut i = 0;
+        loop {
+            if shader.fns[i].eq(self) {
+                break i;
+            }
 
-#[derive(Debug, Clone, Copy, ConstEq)]
-pub struct StmtIrId(pub usize);
+            i += 1;
+        }
+    }
+}
 
 impl LiteralIr {
     pub const fn eq(&self, other: &Self) -> bool {
