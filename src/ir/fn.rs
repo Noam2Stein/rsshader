@@ -1,6 +1,6 @@
 use rsshader_macros::ConstEq;
 
-use crate::ir::{Bank, Id, LinkedShaderIr, TypeIr};
+use crate::ir::{Bank, Id, LengthIr, LinkedShaderIr, PrimitiveIr, TypeIr, VectorIr};
 
 #[derive(Debug, Clone, Copy, ConstEq)]
 pub enum FnIr {
@@ -13,80 +13,7 @@ pub enum FnIr {
 }
 
 #[derive(Debug, Clone, Copy, ConstEq)]
-pub enum BuiltInFnIr {
-    Neg {
-        ty: &'static TypeIr,
-    },
-    Not {
-        ty: &'static TypeIr,
-    },
 
-    Add {
-        left: &'static TypeIr,
-        right: &'static TypeIr,
-    },
-    Sub {
-        left: &'static TypeIr,
-        right: &'static TypeIr,
-    },
-    Mul {
-        left: &'static TypeIr,
-        right: &'static TypeIr,
-    },
-    Div {
-        left: &'static TypeIr,
-        right: &'static TypeIr,
-    },
-    Rem {
-        left: &'static TypeIr,
-        right: &'static TypeIr,
-    },
-    Shl {
-        left: &'static TypeIr,
-        right: &'static TypeIr,
-    },
-    Shr {
-        left: &'static TypeIr,
-        right: &'static TypeIr,
-    },
-    BitAnd {
-        left: &'static TypeIr,
-        right: &'static TypeIr,
-    },
-    BitOr {
-        left: &'static TypeIr,
-        right: &'static TypeIr,
-    },
-    BitXor {
-        left: &'static TypeIr,
-        right: &'static TypeIr,
-    },
-
-    Eq {
-        ty: &'static TypeIr,
-    },
-    Ne {
-        ty: &'static TypeIr,
-    },
-    Lt {
-        ty: &'static TypeIr,
-    },
-    Le {
-        ty: &'static TypeIr,
-    },
-    Ge {
-        ty: &'static TypeIr,
-    },
-
-    And,
-    Or,
-
-    StructConstructor {
-        ty: &'static TypeIr,
-    },
-}
-
-#[derive(Debug, Clone, Copy, ConstEq)]
 pub struct BodyIr {
     pub stmts: &'static [Id<StmtIr>],
     pub expr_bank: Bank<ExprIr>,
@@ -127,6 +54,159 @@ pub enum StmtIr {
     VariableDecl { var: VariableIr },
     Assignment { left: PlaceIr, right: ExprIr },
     Return { value: Option<ExprIr> },
+}
+
+#[derive(Debug, Clone, Copy, ConstEq)]
+pub enum BuiltInFnIr {
+    Neg(NegFnIr),
+    Not(NotFnIr),
+
+    Add(AddFnIr),
+    Sub(SubFnIr),
+    Mul(MulFnIr),
+    Div(DivFnIr),
+    Rem(RemFnIr),
+    Shl(ShlFnIr),
+    Shr(ShrFnIr),
+    BitAnd(BitAndFnIr),
+    BitOr(BitOrFnIr),
+    BitXor(BitXorFnIr),
+
+    Eq(EqFnIr),
+    Ne(EqFnIr),
+    Lt(CmpFnIr),
+    Gt(CmpFnIr),
+    Le(CmpFnIr),
+    Ge(CmpFnIr),
+}
+
+#[derive(Debug, Clone, Copy, ConstEq)]
+pub enum NegFnIr {
+    F32,
+    I32,
+    U32,
+    F32Vec { len: LengthIr },
+    I32Vec { len: LengthIr },
+    U32Vec { len: LengthIr },
+}
+
+#[derive(Debug, Clone, Copy, ConstEq)]
+pub enum NotFnIr {
+    Bool,
+    I32,
+    U32,
+    BoolVec { len: LengthIr },
+    I32Vec { len: LengthIr },
+    U32Vec { len: LengthIr },
+}
+
+#[derive(Debug, Clone, Copy, ConstEq)]
+pub enum AddFnIr {
+    F32,
+    I32,
+    U32,
+    F32Vec { len: LengthIr },
+    I32Vec { len: LengthIr },
+    U32Vec { len: LengthIr },
+}
+
+#[derive(Debug, Clone, Copy, ConstEq)]
+pub enum SubFnIr {
+    F32,
+    I32,
+    U32,
+    F32Vec { len: LengthIr },
+    I32Vec { len: LengthIr },
+    U32Vec { len: LengthIr },
+}
+
+#[derive(Debug, Clone, Copy, ConstEq)]
+pub enum MulFnIr {
+    F32,
+    I32,
+    U32,
+    F32Vec { len: LengthIr },
+    I32Vec { len: LengthIr },
+    U32Vec { len: LengthIr },
+}
+
+#[derive(Debug, Clone, Copy, ConstEq)]
+pub enum DivFnIr {
+    F32,
+    I32,
+    U32,
+    F32Vec { len: LengthIr },
+    I32Vec { len: LengthIr },
+    U32Vec { len: LengthIr },
+}
+
+#[derive(Debug, Clone, Copy, ConstEq)]
+pub enum RemFnIr {
+    F32,
+    I32,
+    U32,
+    F32Vec { len: LengthIr },
+    I32Vec { len: LengthIr },
+    U32Vec { len: LengthIr },
+}
+
+#[derive(Debug, Clone, Copy, ConstEq)]
+pub enum ShlFnIr {
+    I32,
+    U32,
+    I32Vec { len: LengthIr },
+    U32Vec { len: LengthIr },
+}
+
+#[derive(Debug, Clone, Copy, ConstEq)]
+pub enum ShrFnIr {
+    I32,
+    U32,
+    I32Vec { len: LengthIr },
+    U32Vec { len: LengthIr },
+}
+
+#[derive(Debug, Clone, Copy, ConstEq)]
+pub enum BitAndFnIr {
+    Bool,
+    I32,
+    U32,
+    BoolVec { len: LengthIr },
+    I32Vec { len: LengthIr },
+    U32Vec { len: LengthIr },
+}
+
+#[derive(Debug, Clone, Copy, ConstEq)]
+pub enum BitOrFnIr {
+    Bool,
+    I32,
+    U32,
+    BoolVec { len: LengthIr },
+    I32Vec { len: LengthIr },
+    U32Vec { len: LengthIr },
+}
+
+#[derive(Debug, Clone, Copy, ConstEq)]
+pub enum BitXorFnIr {
+    Bool,
+    I32,
+    U32,
+    BoolVec { len: LengthIr },
+    I32Vec { len: LengthIr },
+    U32Vec { len: LengthIr },
+}
+
+#[derive(Debug, Clone, Copy, ConstEq)]
+pub enum EqFnIr {
+    Primitive(PrimitiveIr),
+    Vector(VectorIr),
+}
+
+#[derive(Debug, Clone, Copy, ConstEq)]
+pub enum CmpFnIr {
+    F32,
+    I32,
+    U32,
 }
 
 impl FnIr {

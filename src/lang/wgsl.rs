@@ -1,7 +1,8 @@
 use crate::{
     ir::{
-        BuiltInFnIr, ExprIr, FnIr, LengthIr, LinkedShaderIr, LiteralIr, PlaceIr, PrimitiveIr,
-        StmtIr, TypeIr, VariableIr, VectorIr, VertexInputIr,
+        BodyIr, BuiltInFnIr, EntryPointIr, ExprIr, FnIr, FragInputIr, FragOutputIr, LengthIr,
+        LinkedShaderIr, LiteralIr, PlaceIr, PrimitiveIr, StmtIr, StructIr, TypeIr, VariableIr,
+        VectorIr, VertexInputIr,
     },
     lang::Formatter,
 };
@@ -13,8 +14,7 @@ macro_rules! wgsl {
     };
 }
 
-#[doc(hidden)]
-pub const fn fmt(f: &mut Formatter, shader: &'static LinkedShaderIr) {
+pub const fn fmt(f: &mut Formatter, shader: &LinkedShaderIr) {
     macro_rules! fmt_all {
         ($f:path => $values:expr) => {
             let mut i = 0;
@@ -27,6 +27,11 @@ pub const fn fmt(f: &mut Formatter, shader: &'static LinkedShaderIr) {
     }
 
     fmt_all!(fmt_vertex_input => shader.vertex_inputs);
+    fmt_all!(fmt_frag_input => shader.frag_inputs);
+    fmt_all!(fmt_frag_output => shader.frag_outputs);
+    fmt_all!(fmt_ty => shader.types);
+    fmt_all!(fmt_entry_point => shader.entry_points);
+    fmt_all!(fmt_fn => shader.fns);
 }
 
 const fn fmt_vertex_input(
@@ -34,14 +39,80 @@ const fn fmt_vertex_input(
     vertex_input: &VertexInputIr,
     shader: &LinkedShaderIr,
 ) {
+    f.write_str("struct vertex_input");
+    f.write_i128(vertex_input.id(shader) as i128);
+    f.write_str(" {\n");
+
+    let mut attr_idx = 0;
+    let mut attrs = vertex_input.iter();
+    while let Some(attr_ty) = attrs.next() {
+        f.write_str("\t@location(");
+        f.write_i128(attr_idx as i128);
+        f.write_str(")");
+        f.write_str("\tattr");
+        f.write_i128(attr_idx as i128);
+        f.write_str(": ");
+        fmt_ty(f, attr_ty, shader);
+        f.write_str(";\n");
+
+        attr_idx += 1;
+    }
+
+    f.write_str("}\n\n");
 }
 
-const fn fmt_ty(
-    f: &mut Formatter,
-    ty: &'static TypeIr,
-    ty_idx: usize,
-    shader: &'static LinkedShaderIr,
-) {
+const fn fmt_frag_input(f: &mut Formatter, frag_input: &FragInputIr, shader: &LinkedShaderIr) {
+    f.write_str("struct frag_input");
+    f.write_i128(frag_input.id(shader) as i128);
+    f.write_str(" {\n");
+
+    let mut attr_idx = 0;
+    let mut attrs = frag_input.iter();
+    while let Some(attr_ty) = attrs.next() {
+        if attr_idx == 0 {
+            f.write_str("\t@builtin(position)");
+        } else {
+            f.write_str("\t@location(");
+            f.write_i128(attr_idx as i128);
+            f.write_str(")");
+        }
+
+        f.write_str("\tattr");
+        f.write_i128(attr_idx as i128);
+        f.write_str(":");
+        fmt_ty(f, attr_ty, shader);
+        f.write_str(";\n");
+
+        attr_idx += 1;
+    }
+
+    f.write_str("}\n\n");
+}
+
+const fn fmt_frag_output(f: &mut Formatter, frag_output: &FragOutputIr, shader: &LinkedShaderIr) {
+    f.write_str("struct frag_output");
+    f.write_i128(frag_output.id(shader) as i128);
+    f.write_str(" {\n");
+
+    let mut attr_idx = 0;
+    let mut attrs = frag_output.iter();
+    while let Some(attr_ty) = attrs.next() {
+        f.write_str("\t@location(");
+        f.write_i128(attr_idx as i128);
+        f.write_str(")");
+        f.write_str("\tattr");
+        f.write_i128(attr_idx as i128);
+        f.write_str(":");
+        fmt_ty(f, attr_ty, shader);
+        f.write_str(";\n");
+
+        attr_idx += 1;
+    }
+
+    f.write_str("}\n\n");
+}
+
+const fn fmt_ty(f: &mut Formatter, ty: &'static TypeIr, shader: &LinkedShaderIr) {
     match ty {
         TypeIr::Primitive(
             PrimitiveIr::F32 | PrimitiveIr::I32 | PrimitiveIr::U32 | PrimitiveIr::Bool,
@@ -52,18 +123,18 @@ const fn fmt_ty(
             length: LengthIr::Two | LengthIr::Three | LengthIr::Four,
         }) => {}
 
-        TypeIr::Struct(ty) => {
+        TypeIr::Struct(StructIr { fields }) => {
             f.write_str("struct type");
-            f.write_i128(ty_idx as i128);
+            f.write_i128(ty.id(shader) as i128);
             f.write_str(" {\n");
 
             let mut field_idx = 0;
-            while field_idx < ty.fields.len() {
+            while field_idx < fields.len() {
                 f.write_str("\tfield");
                 f.write_i128(field_idx as i128);
                 f.write_str(": ");
 
-                fmt_type_name(f, &ty.fields[field_idx], shader);
+                fmt_type_name(f, &fields[field_idx], shader);
                 f.write_str(",\n");
 
                 field_idx += 1;
@@ -74,7 +145,124 @@ const fn fmt_ty(
     }
 }
 
-const fn fmt_type_name(f: &mut Formatter, ty: &'static TypeIr, shader: &'static LinkedShaderIr) {
+const fn fmt_entry_point(
+    f: &mut Formatter,
+    entry_point: &'static EntryPointIr,
+    shader: &LinkedShaderIr,
+) {
+    match entry_point {
+        EntryPointIr::Vertex {
+            input,
+            output,
+            body,
+        } => {
+            f.write_str("@vertex\n");
+            f.write_str("fn entry_point");
+            f.write_i128(entry_point.id(shader) as i128);
+            f.write_str("(vertex: vertex_input");
+            f.write_i128(input.id(shader) as i128);
+            f.write_str(") -> frag_input");
+            f.write_i128(output.id(shader) as i128);
+            f.write_str(" {\n");
+
+            fmt_body(f, body, shader);
+
+            f.write_str("}\n\n");
+        }
+
+        EntryPointIr::Frag {
+            input,
+            output,
+            body,
+        } => {
+            f.write_str("@fragment\n");
+            f.write_str("fn entry_point");
+            f.write_i128(entry_point.id(shader) as i128);
+            f.write_str("(frag: frag_input");
+            f.write_i128(input.id(shader) as i128);
+            f.write_str(") -> frag_output");
+            f.write_i128(output.id(shader) as i128);
+            f.write_str(" {\n");
+
+            fmt_body(f, body, shader);
+
+            f.write_str("}\n\n");
+        }
+    }
+}
+
+const fn fmt_fn(f: &mut Formatter, func: &'static FnIr, shader: &LinkedShaderIr) {
+    match func {
+        FnIr::UserDefined {
+            params,
+            ret_ty,
+            body,
+        } => {
+            f.write_str("fn fn");
+            f.write_i128(func.id(shader) as i128);
+            f.write_str("(");
+
+            let mut param_idx = 0;
+            while param_idx < params.len() {
+                if param_idx > 0 {
+                    f.write_str(", ");
+                }
+
+                f.write_str("var");
+                f.write_i128(params[param_idx].id as i128);
+                f.write_str(": ");
+                fmt_type_name(f, &params[param_idx].ty, shader);
+
+                param_idx += 1;
+            }
+
+            f.write_str(")");
+
+            if let Some(ret_ty) = ret_ty {
+                f.write_str(" -> ");
+                fmt_type_name(f, ret_ty, shader);
+            }
+
+            f.write_str(" {\n");
+
+            fmt_body(f, body, shader);
+
+            f.write_str("}\n\n");
+        }
+
+        FnIr::BuiltIn(BuiltInFnIr::Neg { ty }) => match ty {
+            TypeIr::Primitive(PrimitiveIr::F32 | PrimitiveIr::I32 | PrimitiveIr::U32) => {}
+            TypeIr::Vector(VectorIr {
+                length: LengthIr::Two | LengthIr::Three | LengthIr::Four,
+                primitive: PrimitiveIr::F32 | PrimitiveIr::I32 | PrimitiveIr::U32,
+            }) => {}
+
+            TypeIr::Struct(_) => panic!("struct neg not supported"),
+            TypeIr::Primitive(PrimitiveIr::Bool)
+            | TypeIr::Vector(VectorIr {
+                length: _,
+                primitive: PrimitiveIr::Bool,
+            }) => panic!("bool neg not supported"),
+        },
+
+        FnIr::BuiltIn(BuiltInFnIr::Not { ty }) => match ty {
+            TypeIr::Primitive(PrimitiveIr::Bool | PrimitiveIr::I32 | PrimitiveIr::U32) => {}
+            TypeIr::Vector(VectorIr {
+                length: LengthIr::Two | LengthIr::Three | LengthIr::Four,
+                primitive: PrimitiveIr::Bool | PrimitiveIr::I32 | PrimitiveIr::U32,
+            }) => {}
+
+            TypeIr::Struct(_) => panic!("struct neg not supported"),
+            TypeIr::Primitive(PrimitiveIr::Bool)
+            | TypeIr::Vector(VectorIr {
+                length: _,
+                primitive: PrimitiveIr::Bool,
+            }) => panic!("bool neg not supported"),
+        },
+    }
+}
+
+const fn fmt_type_name(f: &mut Formatter, ty: &'static TypeIr, shader: &LinkedShaderIr) {
     match ty {
         TypeIr::Primitive(PrimitiveIr::F32) => f.write_str("f32"),
         TypeIr::Primitive(PrimitiveIr::I32) => f.write_str("i32"),
@@ -108,103 +296,7 @@ const fn fmt_type_name(f: &mut Formatter, ty: &'static TypeIr, shader: &'static 
     }
 }
 
-const fn fmt_fn(
-    f: &mut Formatter,
-    function: &'static FnIr,
-    fn_idx: usize,
-    shader: &'static LinkedShaderIr,
-) {
-    let FnIr::UserDefined {
-        entry_point_kind: entry_point_info,
-        params: parameters,
-        ret_ty: return_type,
-        stmts,
-        expr_bank,
-        stmt_bank,
-    } = function
-    else {
-        return match function {
-            FnIr::BuiltIn(function) => fmt_builtin_fn_decl(f, function),
-            FnIr::UserDefined { .. } => panic!(),
-        };
-    };
-
-    match entry_point_info {
-        None => {}
-        Some(EntryPointKind::Vertex) => f.write_str("@vertex\n"),
-        Some(EntryPointKind::Fragment) => f.write_str("@fragment\n"),
-    }
-
-    f.write_str("fn fn");
-    f.write_i128(fn_idx as i128);
-    f.write_str("(");
-
-    let mut param_idx = 0;
-    while param_idx < parameters.len() {
-        if param_idx > 0 {
-            f.write_str(", ");
-        }
-
-        let param = parameters[param_idx];
-
-        f.write_str("var");
-        f.write_i128(param.id as i128);
-        f.write_str(": ");
-        fmt_type_name(f, param.ty, shader);
-
-        param_idx += 1;
-    }
-
-    f.write_str(")");
-
-    if let Some(return_type) = return_type {
-        f.write_str(" -> ");
-        fmt_type_name(f, return_type, shader);
-    }
-
-    f.write_str(" {\n");
-
-    let mut stmt_idx = 0;
-    while stmt_idx < stmts.len() {
-        let stmt = &stmt_bank[stmts[stmt_idx]];
-
-        fmt_stmt(f, &stmt, expr_bank, stmt_bank, 1, shader);
-
-        stmt_idx += 1;
-    }
-
-    f.write_str("}\n\n");
-}
-
-const fn fmt_builtin_fn_decl(_f: &mut Formatter, function: &'static BuiltInFnIr) {
-    match function {
-        BuiltInFnIr::Neg(_) => {}
-        BuiltInFnIr::Not(_) => {}
-
-        BuiltInFnIr::Add(_, _) => {}
-        BuiltInFnIr::Sub(_, _) => {}
-        BuiltInFnIr::Mul(_, _) => {}
-        BuiltInFnIr::Div(_, _) => {}
-        BuiltInFnIr::Rem(_, _) => {}
-        BuiltInFnIr::Shl(_, _) => {}
-        BuiltInFnIr::Shr(_, _) => {}
-        BuiltInFnIr::BitAnd(_, _) => {}
-        BuiltInFnIr::BitOr(_, _) => {}
-        BuiltInFnIr::BitXor(_, _) => {}
-
-        BuiltInFnIr::Eq(_) => {}
-        BuiltInFnIr::Ne(_) => {}
-        BuiltInFnIr::Lt(_) => {}
-        BuiltInFnIr::Gt(_) => {}
-        BuiltInFnIr::Le(_) => {}
-        BuiltInFnIr::Ge(_) => {}
-
-        BuiltInFnIr::And => {}
-        BuiltInFnIr::Or => {}
-
-        BuiltInFnIr::StructConstructor { .. } => {}
-    }
-}
+const fn fmt_body(f: &mut Formatter, body: &'static BodyIr, shader: &LinkedShaderIr) {}
 
 const fn fmt_stmt(
     f: &mut Formatter,

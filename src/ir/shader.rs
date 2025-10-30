@@ -23,8 +23,8 @@ pub mod linker {
 
     use crate::ir::{
         AttrIter, BodyIr, BuiltInFnIr, EntryPointIr, ExprIr, FnIr, FragInputIr, FragOutputIr,
-        LinkedShaderIr, LiteralIr, PlaceIr, PrimitiveIr, ShaderIr, StmtIr, TypeIr, VariableIr,
-        VertexInputIr,
+        LinkedShaderIr, LiteralIr, NegFnIr, PlaceIr, PrimitiveIr, ShaderIr, StmtIr, TypeIr,
+        VariableIr, VertexInputIr,
     };
 
     #[derive(Debug, Clone, Copy)]
@@ -255,7 +255,7 @@ pub mod linker {
                     self.link_body(body);
                 }
 
-                FnIr::BuiltIn(BuiltInFnIr::Neg { ty }) => self.link_ty(ty),
+                FnIr::BuiltIn(BuiltInFnIr::Neg(NegFnIr::F32)) => self.link_ty(ty),
                 FnIr::BuiltIn(BuiltInFnIr::Not { ty }) => self.link_ty(ty),
 
                 FnIr::BuiltIn(BuiltInFnIr::Add { left, right }) => {
