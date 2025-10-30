@@ -7,4 +7,4 @@ version = "0.1.0"
 rsshader_macros = { path = "proc_macros" }
 
 [workspace]
-members = [".", "examples/hello_triangle", "proc_macros"]
+members = [".", "examples/hello_triangle", "examples/math_crate", "proc_macros"]
