@@ -255,7 +255,9 @@ pub mod linker {
                     self.link_body(body);
                 }
 
-                FnIr::BuiltIn(BuiltInFnIr::Neg(NegFnIr::F32)) => self.link_ty(ty),
+                FnIr::BuiltIn(BuiltInFnIr::ScalarNeg { ty }) => {
+                    self.link_ty(ty.as_primitive().as_type())
+                }
                 FnIr::BuiltIn(BuiltInFnIr::Not { ty }) => self.link_ty(ty),
 
                 FnIr::BuiltIn(BuiltInFnIr::Add { left, right }) => {
