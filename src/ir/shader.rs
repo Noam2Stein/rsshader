@@ -22,9 +22,9 @@ pub mod linker {
     use core::mem::MaybeUninit;
 
     use crate::ir::{
-        AttrIr, AttrIrIter, BodyIr, BuiltInFnIr, EntryPointIr, ExprIr, FnIr, FragInputIr,
-        FragOutputIr, LinkedShaderIr, LiteralIr, PlaceIr, PrimitiveIr, ShaderIr, StmtIr, TypeIr,
-        VariableIr, VertexInputIr,
+        AttrIter, BodyIr, BuiltInFnIr, EntryPointIr, ExprIr, FnIr, FragInputIr, FragOutputIr,
+        LinkedShaderIr, LiteralIr, PlaceIr, PrimitiveIr, ShaderIr, StmtIr, TypeIr, VariableIr,
+        VertexInputIr,
     };
 
     #[derive(Debug, Clone, Copy)]
@@ -121,10 +121,8 @@ pub mod linker {
             }
         }
 
-        const fn link_attr_iter(&mut self, mut iter: AttrIrIter) {
-            while let Some(attr) = iter.next() {
-                let AttrIr { ty, idx: _ } = attr;
-
+        const fn link_attr_iter(&mut self, mut iter: AttrIter) {
+            while let Some(ty) = iter.next() {
                 self.link_ty(ty);
             }
         }

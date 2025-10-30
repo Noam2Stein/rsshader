@@ -25,13 +25,7 @@ pub struct FragInputIr(pub &'static TypeIr);
 #[derive(Debug, Clone, Copy, ConstEq)]
 pub struct FragOutputIr(pub &'static TypeIr);
 
-#[derive(Debug, Clone, Copy, ConstEq)]
-pub struct AttrIr {
-    pub ty: &'static TypeIr,
-    pub idx: usize,
-}
-
-pub struct AttrIrIter {
+pub struct AttrIter {
     ty: &'static TypeIr,
     idx: usize,
 }
@@ -50,8 +44,8 @@ impl EntryPointIr {
 }
 
 impl VertexInputIr {
-    pub const fn iter(&self) -> AttrIrIter {
-        AttrIrIter { ty: self.0, idx: 0 }
+    pub const fn iter(&self) -> AttrIter {
+        AttrIter { ty: self.0, idx: 0 }
     }
 
     pub const fn id(&self, shader: &LinkedShaderIr) -> usize {
@@ -67,8 +61,8 @@ impl VertexInputIr {
 }
 
 impl FragInputIr {
-    pub const fn iter(&self) -> AttrIrIter {
-        AttrIrIter { ty: self.0, idx: 0 }
+    pub const fn iter(&self) -> AttrIter {
+        AttrIter { ty: self.0, idx: 0 }
     }
 
     pub const fn id(&self, shader: &LinkedShaderIr) -> usize {
@@ -84,8 +78,8 @@ impl FragInputIr {
 }
 
 impl FragOutputIr {
-    pub const fn iter(&self) -> AttrIrIter {
-        AttrIrIter { ty: self.0, idx: 0 }
+    pub const fn iter(&self) -> AttrIter {
+        AttrIter { ty: self.0, idx: 0 }
     }
 
     pub const fn id(&self, shader: &LinkedShaderIr) -> usize {
@@ -100,17 +94,12 @@ impl FragOutputIr {
     }
 }
 
-impl AttrIrIter {
-    pub const fn next(&mut self) -> Option<AttrIr> {
+impl AttrIter {
+    pub const fn next(&mut self) -> Option<&'static TypeIr> {
         let ty = Self::peek(self.ty, self.idx);
-        let output = match ty {
-            Some(ty) => Some(AttrIr { ty, idx: self.idx }),
-            None => None,
-        };
-
         self.idx += 1;
 
-        output
+        ty
     }
 
     const fn peek(ty: &'static TypeIr, idx: usize) -> Option<&'static TypeIr> {
