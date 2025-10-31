@@ -1,6 +1,4 @@
-use crate::ir::{
-    FragInputIr, FragOutputIr, LengthIr, PrimitiveIr, TypeIr, VectorIr, VertexInputIr,
-};
+use crate::ir::{FragInputIr, FragOutputIr, Length, Primitive, TypeIr, VertexInputIr};
 
 pub trait Ty: Copy + 'static + Send + Sync {
     const IR: TypeIr;
@@ -24,27 +22,27 @@ pub trait FragOutputTy: Ty {
 
 impl PrimitiveTy for f32 {}
 impl Ty for f32 {
-    const IR: TypeIr = TypeIr::Primitive(PrimitiveIr::F32);
+    const IR: TypeIr = TypeIr::Primitive(Primitive::F32);
 }
 
 impl PrimitiveTy for i32 {}
 impl Ty for i32 {
-    const IR: TypeIr = TypeIr::Primitive(PrimitiveIr::I32);
+    const IR: TypeIr = TypeIr::Primitive(Primitive::I32);
 }
 
 impl PrimitiveTy for u32 {}
 impl Ty for u32 {
-    const IR: TypeIr = TypeIr::Primitive(PrimitiveIr::U32);
+    const IR: TypeIr = TypeIr::Primitive(Primitive::U32);
 }
 
 impl PrimitiveTy for bool {}
 impl Ty for bool {
-    const IR: TypeIr = TypeIr::Primitive(PrimitiveIr::Bool);
+    const IR: TypeIr = TypeIr::Primitive(Primitive::Bool);
 }
 
 impl<T: VectorTy<4, f32>> FragOutputTy for T {
-    const IR: FragOutputIr = FragOutputIr(&TypeIr::Vector(VectorIr {
-        length: LengthIr::Four,
-        primitive: PrimitiveIr::F32,
-    }));
+    const IR: FragOutputIr = FragOutputIr(&TypeIr::Vector {
+        n: Length::Four,
+        t: Primitive::F32,
+    });
 }

@@ -1,6 +1,8 @@
+use core::marker::PhantomData;
+
 use rsshader_macros::ConstEq;
 
-use crate::ir::{BodyIr, LinkedShaderIr, TypeIr};
+use crate::ir::{BodyIr, Inner, Iter, LinkedShaderIr, TypeIr};
 
 #[derive(Debug, Clone, Copy, ConstEq)]
 pub enum EntryPointIr {
@@ -25,11 +27,6 @@ pub struct FragInputIr(pub &'static TypeIr);
 #[derive(Debug, Clone, Copy, ConstEq)]
 pub struct FragOutputIr(pub &'static TypeIr);
 
-pub struct AttrIter {
-    ty: &'static TypeIr,
-    idx: usize,
-}
-
 impl EntryPointIr {
     pub const fn id(&self, shader: &LinkedShaderIr) -> usize {
         let mut i = 0;
@@ -44,8 +41,8 @@ impl EntryPointIr {
 }
 
 impl VertexInputIr {
-    pub const fn iter(&self) -> AttrIter {
-        AttrIter { ty: self.0, idx: 0 }
+    pub const fn attrs(&self) -> Iter<&'static TypeIr> {
+        Iter(Inner::Attributes { ty: self.0, idx: 0 }, PhantomData)
     }
 
     pub const fn id(&self, shader: &LinkedShaderIr) -> usize {
@@ -61,8 +58,8 @@ impl VertexInputIr {
 }
 
 impl FragInputIr {
-    pub const fn iter(&self) -> AttrIter {
-        AttrIter { ty: self.0, idx: 0 }
+    pub const fn attrs(&self) -> Iter<&'static TypeIr> {
+        Iter(Inner::Attributes { ty: self.0, idx: 0 }, PhantomData)
     }
 
     pub const fn id(&self, shader: &LinkedShaderIr) -> usize {
@@ -78,8 +75,8 @@ impl FragInputIr {
 }
 
 impl FragOutputIr {
-    pub const fn iter(&self) -> AttrIter {
-        AttrIter { ty: self.0, idx: 0 }
+    pub const fn attrs(&self) -> Iter<&'static TypeIr> {
+        Iter(Inner::Attributes { ty: self.0, idx: 0 }, PhantomData)
     }
 
     pub const fn id(&self, shader: &LinkedShaderIr) -> usize {
@@ -90,62 +87,6 @@ impl FragOutputIr {
             }
 
             i += 1;
-        }
-    }
-}
-
-impl AttrIter {
-    pub const fn next(&mut self) -> Option<&'static TypeIr> {
-        let ty = Self::peek(self.ty, self.idx);
-        self.idx += 1;
-
-        ty
-    }
-
-    const fn peek(ty: &'static TypeIr, idx: usize) -> Option<&'static TypeIr> {
-        match ty {
-            TypeIr::Primitive(_) | TypeIr::Vector(_) => {
-                if idx == 0 {
-                    Some(ty)
-                } else {
-                    None
-                }
-            }
-
-            TypeIr::Struct(ty) => {
-                let mut field_idx = 0;
-                let mut idx_in_field = idx;
-                loop {
-                    if field_idx < ty.fields.len() {
-                        let field_attr_count = Self::count(ty.fields[field_idx]);
-                        if idx_in_field < field_attr_count {
-                            break Some(Self::peek(ty.fields[field_idx], idx_in_field).unwrap());
-                        } else {
-                            field_idx += 1;
-                            idx_in_field -= field_attr_count;
-                        }
-                    } else {
-                        break None;
-                    }
-                }
-            }
-        }
-    }
-
-    const fn count(ty: &'static TypeIr) -> usize {
-        match ty {
-            TypeIr::Primitive(_) | TypeIr::Vector(_) => 1,
-
-            TypeIr::Struct(ty) => {
-                let mut sum = 0;
-                let mut i = 0;
-                while i < ty.fields.len() {
-                    sum += Self::count(ty.fields[i]);
-                    i += 1;
-                }
-
-                sum
-            }
         }
     }
 }

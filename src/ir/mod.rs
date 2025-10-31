@@ -1,10 +1,8 @@
-mod bank;
 mod entry_point;
 mod r#fn;
 mod iter;
 mod shader;
 mod ty;
-pub use bank::*;
 pub use entry_point::*;
 pub use r#fn::*;
 pub use iter::*;

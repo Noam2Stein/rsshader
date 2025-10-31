@@ -22,9 +22,8 @@ pub mod linker {
     use core::mem::MaybeUninit;
 
     use crate::ir::{
-        AttrIter, BodyIr, BuiltInFnIr, EntryPointIr, ExprIr, FnIr, FragInputIr, FragOutputIr,
-        LinkedShaderIr, LiteralIr, NegFnIr, PlaceIr, PrimitiveIr, ShaderIr, StmtIr, TypeIr,
-        VariableIr, VertexInputIr,
+        BodyIr, BuiltinFn, EntryPointIr, ExprIr, FnIr, FragInputIr, FragOutputIr, LinkedShaderIr,
+        Literal, PlaceIr, Primitive, ShaderIr, StmtIr, TypeIr, VertexInputIr,
     };
 
     #[derive(Debug, Clone, Copy)]
@@ -39,7 +38,7 @@ pub mod linker {
         vertex_inputs: LinkerVec<&'static VertexInputIr, VERTEX_INPUT_CAP>,
         frag_inputs: LinkerVec<&'static FragInputIr, FRAG_INPUT_CAP>,
         frag_outputs: LinkerVec<&'static FragOutputIr, FRAG_OUTPUT_CAP>,
-        types: LinkerVec<&'static TypeIr, TY_CAP>,
+        types: LinkerVec<TypeIr, TY_CAP>,
         entry_points: LinkerVec<&'static EntryPointIr, ENTRY_POINT_CAP>,
         fns: LinkerVec<&'static FnIr, FN_CAP>,
     }
@@ -102,8 +101,8 @@ pub mod linker {
                     self.vertex_inputs.link(input);
                     self.frag_inputs.link(output);
 
-                    self.link_attr_iter(input.iter());
-                    self.link_attr_iter(output.iter());
+                    self.link_attr_iter(input.attrs());
+                    self.link_attr_iter(output.attrs());
                     self.link_body(body);
                 }
                 EntryPointIr::Frag {
@@ -114,8 +113,8 @@ pub mod linker {
                     self.frag_inputs.link(input);
                     self.frag_outputs.link(output);
 
-                    self.link_attr_iter(input.iter());
-                    self.link_attr_iter(output.iter());
+                    self.link_attr_iter(input.attrs());
+                    self.link_attr_iter(output.attrs());
                     self.link_body(body);
                 }
             }
@@ -134,10 +133,10 @@ pub mod linker {
                 TypeIr::Primitive(_) => {}
 
                 TypeIr::Vector(ty) => match ty.primitive {
-                    PrimitiveIr::F32 => self.link_ty(&TypeIr::Primitive(PrimitiveIr::F32)),
-                    PrimitiveIr::I32 => self.link_ty(&TypeIr::Primitive(PrimitiveIr::I32)),
-                    PrimitiveIr::U32 => self.link_ty(&TypeIr::Primitive(PrimitiveIr::U32)),
-                    PrimitiveIr::Bool => self.link_ty(&TypeIr::Primitive(PrimitiveIr::Bool)),
+                    Primitive::F32 => self.link_ty(&TypeIr::Primitive(Primitive::F32)),
+                    Primitive::I32 => self.link_ty(&TypeIr::Primitive(Primitive::I32)),
+                    Primitive::U32 => self.link_ty(&TypeIr::Primitive(Primitive::U32)),
+                    Primitive::Bool => self.link_ty(&TypeIr::Primitive(Primitive::Bool)),
                 },
 
                 TypeIr::Struct(ty) => {
@@ -188,17 +187,17 @@ pub mod linker {
 
         const fn link_expr(&mut self, expr: &ExprIr, body: &BodyIr) {
             match expr {
-                ExprIr::Literal(LiteralIr::F32(_)) => {
-                    self.link_ty(&TypeIr::Primitive(PrimitiveIr::F32))
+                ExprIr::Literal(Literal::F32(_)) => {
+                    self.link_ty(&TypeIr::Primitive(Primitive::F32))
                 }
-                ExprIr::Literal(LiteralIr::I32(_)) => {
-                    self.link_ty(&TypeIr::Primitive(PrimitiveIr::I32))
+                ExprIr::Literal(Literal::I32(_)) => {
+                    self.link_ty(&TypeIr::Primitive(Primitive::I32))
                 }
-                ExprIr::Literal(LiteralIr::U32(_)) => {
-                    self.link_ty(&TypeIr::Primitive(PrimitiveIr::U32))
+                ExprIr::Literal(Literal::U32(_)) => {
+                    self.link_ty(&TypeIr::Primitive(Primitive::U32))
                 }
-                ExprIr::Literal(LiteralIr::Bool(_)) => {
-                    self.link_ty(&TypeIr::Primitive(PrimitiveIr::Bool))
+                ExprIr::Literal(Literal::Bool(_)) => {
+                    self.link_ty(&TypeIr::Primitive(Primitive::Bool))
                 }
 
                 ExprIr::Variable(var) => {
@@ -207,7 +206,7 @@ pub mod linker {
                     self.link_ty(ty);
                 }
 
-                ExprIr::FunctionCall { func, args } => {
+                ExprIr::Call { func, args } => {
                     self.link_fn(func);
 
                     let mut i = 0;
@@ -235,8 +234,8 @@ pub mod linker {
 
             match func {
                 FnIr::UserDefined {
-                    params,
-                    ret_ty,
+                    param_types: params,
+                    ret_type: ret_ty,
                     body,
                 } => {
                     let mut i = 0;
@@ -255,66 +254,64 @@ pub mod linker {
                     self.link_body(body);
                 }
 
-                FnIr::BuiltIn(BuiltInFnIr::ScalarNeg { ty }) => {
+                FnIr::Builtin(BuiltinFn::ScalarNeg { ty }) => {
                     self.link_ty(ty.as_primitive().as_type())
                 }
-                FnIr::BuiltIn(BuiltInFnIr::Not { ty }) => self.link_ty(ty),
+                FnIr::Builtin(BuiltinFn::VectorNeg { n, t }) => self.link_ty(&Type),
 
-                FnIr::BuiltIn(BuiltInFnIr::Add { left, right }) => {
-                    self.link_ty(left);
-                    self.link_ty(right);
-                }
-                FnIr::BuiltIn(BuiltInFnIr::Sub { left, right }) => {
-                    self.link_ty(left);
-                    self.link_ty(right);
-                }
-                FnIr::BuiltIn(BuiltInFnIr::Mul { left, right }) => {
-                    self.link_ty(left);
-                    self.link_ty(right);
-                }
-                FnIr::BuiltIn(BuiltInFnIr::Div { left, right }) => {
-                    self.link_ty(left);
-                    self.link_ty(right);
-                }
-                FnIr::BuiltIn(BuiltInFnIr::Rem { left, right }) => {
-                    self.link_ty(left);
-                    self.link_ty(right);
-                }
-                FnIr::BuiltIn(BuiltInFnIr::Shl { left, right }) => {
-                    self.link_ty(left);
-                    self.link_ty(right);
-                }
-                FnIr::BuiltIn(BuiltInFnIr::Shr { left, right }) => {
-                    self.link_ty(left);
-                    self.link_ty(right);
-                }
-                FnIr::BuiltIn(BuiltInFnIr::BitAnd { left, right }) => {
-                    self.link_ty(left);
-                    self.link_ty(right);
-                }
-                FnIr::BuiltIn(BuiltInFnIr::BitOr { left, right }) => {
-                    self.link_ty(left);
-                    self.link_ty(right);
-                }
-                FnIr::BuiltIn(BuiltInFnIr::BitXor { left, right }) => {
-                    self.link_ty(left);
-                    self.link_ty(right);
-                }
+                FnIr::Builtin(BuiltinFn::Not { ty }) => self.link_ty(ty),
 
-                FnIr::BuiltIn(BuiltInFnIr::Eq { ty }) => self.link_ty(ty),
-                FnIr::BuiltIn(BuiltInFnIr::Ne { ty }) => self.link_ty(ty),
-                FnIr::BuiltIn(BuiltInFnIr::Lt { ty }) => self.link_ty(ty),
-                FnIr::BuiltIn(BuiltInFnIr::Le { ty }) => self.link_ty(ty),
-                FnIr::BuiltIn(BuiltInFnIr::Ge { ty }) => self.link_ty(ty),
-
-                FnIr::BuiltIn(BuiltInFnIr::And) => {
-                    self.link_ty(&TypeIr::Primitive(PrimitiveIr::Bool))
+                FnIr::Builtin(BuiltinFn::Add { left, right }) => {
+                    self.link_ty(left);
+                    self.link_ty(right);
                 }
-                FnIr::BuiltIn(BuiltInFnIr::Or) => {
-                    self.link_ty(&TypeIr::Primitive(PrimitiveIr::Bool))
+                FnIr::Builtin(BuiltinFn::Sub { left, right }) => {
+                    self.link_ty(left);
+                    self.link_ty(right);
+                }
+                FnIr::Builtin(BuiltinFn::Mul { left, right }) => {
+                    self.link_ty(left);
+                    self.link_ty(right);
+                }
+                FnIr::Builtin(BuiltinFn::Div { left, right }) => {
+                    self.link_ty(left);
+                    self.link_ty(right);
+                }
+                FnIr::Builtin(BuiltinFn::Rem { left, right }) => {
+                    self.link_ty(left);
+                    self.link_ty(right);
+                }
+                FnIr::Builtin(BuiltinFn::Shl { left, right }) => {
+                    self.link_ty(left);
+                    self.link_ty(right);
+                }
+                FnIr::Builtin(BuiltinFn::Shr { left, right }) => {
+                    self.link_ty(left);
+                    self.link_ty(right);
+                }
+                FnIr::Builtin(BuiltinFn::BitAnd { left, right }) => {
+                    self.link_ty(left);
+                    self.link_ty(right);
+                }
+                FnIr::Builtin(BuiltinFn::BitOr { left, right }) => {
+                    self.link_ty(left);
+                    self.link_ty(right);
+                }
+                FnIr::Builtin(BuiltinFn::BitXor { left, right }) => {
+                    self.link_ty(left);
+                    self.link_ty(right);
                 }
 
-                FnIr::BuiltIn(BuiltInFnIr::StructConstructor { ty }) => {
+                FnIr::Builtin(BuiltinFn::Eq { ty }) => self.link_ty(ty),
+                FnIr::Builtin(BuiltinFn::Ne { ty }) => self.link_ty(ty),
+                FnIr::Builtin(BuiltinFn::Lt { ty }) => self.link_ty(ty),
+                FnIr::Builtin(BuiltinFn::Le { ty }) => self.link_ty(ty),
+                FnIr::Builtin(BuiltinFn::Ge { ty }) => self.link_ty(ty),
+
+                FnIr::Builtin(BuiltinFn::And) => self.link_ty(&TypeIr::Primitive(Primitive::Bool)),
+                FnIr::Builtin(BuiltinFn::Or) => self.link_ty(&TypeIr::Primitive(Primitive::Bool)),
+
+                FnIr::Builtin(BuiltinFn::StructConstructor { ty }) => {
                     self.link_ty(ty);
                 }
             }
@@ -379,7 +376,7 @@ pub mod linker {
 
             mod _mod3 {
                 use super::*;
-                type T = &'static TypeIr;
+                type T = TypeIr;
                 $impl
             }
 
@@ -398,4 +395,75 @@ pub mod linker {
     }
 
     use for_linked_types;
+}
+
+pub mod linker2 {
+
+    pub struct Linker<const CAP: usize> {}
+}
+
+mod buffer {
+    use core::{marker::PhantomData, mem::MaybeUninit};
+
+    #[derive(Clone, Copy)]
+    pub struct Buffer<const CAP: usize> {
+        bytes: MaybeUninit<[u8; CAP]>,
+        next_idx: usize,
+    }
+
+    #[derive(Clone, Copy)]
+    pub struct BufferPtr<T: Copy> {
+        idx: usize,
+        _danny: PhantomData<T>,
+    }
+
+    impl<const CAP: usize> Buffer<CAP> {
+        pub const fn new() -> Self {
+            Self {
+                bytes: MaybeUninit::uninit(),
+                next_idx: 0,
+            }
+        }
+
+        pub const fn alloc<T: Copy>(&mut self, value: T) -> BufferPtr<T> {
+            if self.next_idx + core::mem::size_of::<T>() > CAP {
+                panic!("allocation exceeded capacity");
+            }
+
+            let idx = self.next_idx;
+            self.next_idx += core::mem::size_of::<T>();
+
+            // SAFETY: the pointer is guaranteed to be in bounds
+            let ptr =
+                unsafe { &mut *(self.bytes.as_mut_ptr().byte_add(idx) as *mut MaybeUninit<T>) };
+
+            ptr.write(value);
+
+            BufferPtr {
+                idx,
+                _danny: PhantomData,
+            }
+        }
+    }
+
+    impl<T: Copy> BufferPtr<T> {
+        pub const unsafe fn access<'buf, const CAP: usize>(
+            &self,
+            buffer: &'buf Buffer<CAP>,
+        ) -> &'buf T {
+            // SAFETY:
+            // the pointer is guaranteed to be in bounds and initialized as long as
+            // buffer is the original buffer.
+            unsafe {
+                buffer
+                    .bytes
+                    .as_ptr()
+                    .byte_add(self.idx)
+                    .cast::<MaybeUninit<T>>()
+                    .as_ref()
+                    .unwrap_unchecked()
+                    .assume_init_ref()
+            }
+        }
+    }
 }

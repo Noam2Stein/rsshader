@@ -4,61 +4,9 @@ use crate::ir::LinkedShaderIr;
 
 #[derive(Debug, Clone, Copy, ConstEq)]
 pub enum TypeIr {
-    Primitive(PrimitiveIr),
-    Vector(VectorIr),
-    Struct(StructIr),
-}
-
-#[derive(Debug, Clone, Copy, ConstEq)]
-pub enum PrimitiveIr {
-    F32,
-    I32,
-    U32,
-    Bool,
-}
-
-#[derive(Debug, Clone, Copy, ConstEq)]
-pub struct VectorIr {
-    pub length: LengthIr,
-    pub primitive: PrimitiveIr,
-}
-
-#[derive(Debug, Clone, Copy, ConstEq)]
-pub enum LengthIr {
-    Two,
-    Three,
-    Four,
-}
-
-#[derive(Debug, Clone, Copy, ConstEq)]
-pub struct StructIr {
-    pub fields: &'static [&'static TypeIr],
-}
-
-#[derive(Debug, Clone, Copy, ConstEq)]
-pub enum NumIr {
-    F32,
-    I32,
-    U32,
-}
-
-#[derive(Debug, Clone, Copy, ConstEq)]
-pub enum IntIr {
-    I32,
-    U32,
-}
-
-#[derive(Debug, Clone, Copy, ConstEq)]
-pub enum SignedNumIr {
-    F32,
-    I32,
-}
-
-#[derive(Debug, Clone, Copy, ConstEq)]
-pub enum BitwisePrimitiveIr {
-    I32,
-    U32,
-    Bool,
+    Primitive(Primitive),
+    Vector { n: Length, t: Primitive },
+    Struct { fields: &'static [TypeIr] },
 }
 
 impl TypeIr {
@@ -74,51 +22,128 @@ impl TypeIr {
     }
 }
 
-impl PrimitiveIr {
-    pub const fn as_type(self) -> &'static TypeIr {
+////////////////////////////////////////////////////////////////////////////////
+// Primitives
+////////////////////////////////////////////////////////////////////////////////
+
+#[derive(Debug, Clone, Copy, ConstEq)]
+pub enum Primitive {
+    F32,
+    I32,
+    U32,
+    Bool,
+}
+
+#[derive(Debug, Clone, Copy, ConstEq)]
+pub enum Numeric {
+    F32,
+    I32,
+    U32,
+}
+
+#[derive(Debug, Clone, Copy, ConstEq)]
+pub enum Int {
+    I32,
+    U32,
+}
+
+#[derive(Debug, Clone, Copy, ConstEq)]
+pub enum Sint {
+    I32,
+}
+
+#[derive(Debug, Clone, Copy, ConstEq)]
+pub enum Uint {
+    U32,
+}
+
+#[derive(Debug, Clone, Copy, ConstEq)]
+pub enum Float {
+    F32,
+}
+
+#[derive(Debug, Clone, Copy, ConstEq)]
+pub enum SignedNumeric {
+    F32,
+    I32,
+}
+
+#[derive(Debug, Clone, Copy, ConstEq)]
+pub enum BitwisePrimitive {
+    I32,
+    U32,
+    Bool,
+}
+
+impl Numeric {
+    pub const fn as_primitive(self) -> Primitive {
         match self {
-            Self::F32 => &TypeIr::Primitive(PrimitiveIr::F32),
-            Self::I32 => &TypeIr::Primitive(PrimitiveIr::I32),
-            Self::U32 => &TypeIr::Primitive(PrimitiveIr::U32),
-            Self::Bool => &TypeIr::Primitive(PrimitiveIr::Bool),
+            Self::F32 => Primitive::F32,
+            Self::I32 => Primitive::I32,
+            Self::U32 => Primitive::U32,
         }
     }
 }
 
-impl NumIr {
-    pub const fn as_primitive(self) -> &'static PrimitiveIr {
+impl Int {
+    pub const fn as_primitive(self) -> Primitive {
         match self {
-            Self::F32 => &PrimitiveIr::F32,
-            Self::I32 => &PrimitiveIr::I32,
-            Self::U32 => &PrimitiveIr::U32,
+            Self::I32 => Primitive::I32,
+            Self::U32 => Primitive::U32,
         }
     }
 }
 
-impl IntIr {
-    pub const fn as_primitive(self) -> &'static PrimitiveIr {
+impl Sint {
+    pub const fn as_primitive(self) -> Primitive {
         match self {
-            Self::I32 => &PrimitiveIr::I32,
-            Self::U32 => &PrimitiveIr::U32,
+            Self::I32 => Primitive::I32,
         }
     }
 }
 
-impl SignedNumIr {
-    pub const fn as_primitive(self) -> &'static PrimitiveIr {
+impl Uint {
+    pub const fn as_primitive(self) -> Primitive {
         match self {
-            Self::F32 => &PrimitiveIr::F32,
-            Self::I32 => &PrimitiveIr::I32,
+            Self::U32 => Primitive::U32,
         }
     }
 }
 
-impl BitwisePrimitiveIr {
-    pub const fn as_primitive(self) -> &'static PrimitiveIr {
+impl Float {
+    pub const fn as_primitive(self) -> Primitive {
         match self {
-            Self::Bool => &PrimitiveIr::Bool,
-            Self::I32 => &PrimitiveIr::I32,
-            Self::U32 => &PrimitiveIr::U32,
+            Self::F32 => Primitive::F32,
         }
     }
+}
+
+impl SignedNumeric {
+    pub const fn as_primitive(self) -> Primitive {
+        match self {
+            Self::F32 => Primitive::F32,
+            Self::I32 => Primitive::I32,
+        }
+    }
+}
+
+impl BitwisePrimitive {
+    pub const fn as_primitive(self) -> Primitive {
+        match self {
+            Self::Bool => Primitive::Bool,
+            Self::I32 => Primitive::I32,
+            Self::U32 => Primitive::U32,
+        }
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Helper Types
+////////////////////////////////////////////////////////////////////////////////
+
+#[derive(Debug, Clone, Copy, ConstEq)]
+pub enum Length {
+    Two,
+    Three,
+    Four,
 }
